@@ -1,0 +1,255 @@
+
+import Foundation
+
+// MARK: - R1: Course Model
+
+struct CourseDetail: Sendable {
+    let id: Int
+    let name: String
+    let duration: String
+}
+
+// MARK: - Custom Error
+
+enum CourseError: Error, LocalizedError {
+    case courseNotFound(Int)
+
+    var errorDescription: String? {
+        switch self {
+        case .courseNotFound(let id):
+            return "Course with ID \(id) was not found."
+        }
+    }
+}
+
+// MARK: - Course Service
+
+struct CourseService {
+
+    // Simulates an independent network request.
+    func fetchCourse(id: Int) async throws -> CourseDetail {
+
+        print("Starting request for course \(id)")
+
+        // Simulate a network delay of 1.2 seconds.
+        try await Task.sleep(nanoseconds: 1_200_000_000)
+
+        // Stop if the task has been cancelled.
+        try Task.checkCancellation()
+
+        // Simulate one course failing.
+        if id == 103 {
+            throw CourseError.courseNotFound(id)
+        }
+
+        print("Completed request for course \(id)")
+
+        return CourseDetail(
+            id: id,
+            name: "Course \(id)",
+            duration: "4 Weeks"
+        )
+    }
+}
+
+// MARK: - R3: Sequential Fetching
+
+func fetchSequentially(
+    ids: [Int],
+    service: CourseService
+) async throws -> [CourseDetail] {
+
+    var results: [CourseDetail] = []
+
+    for id in ids {
+        let course = try await service.fetchCourse(id: id)
+        results.append(course)
+    }
+
+    return results
+}
+
+// MARK: - R2 and R4: Concurrent Fetching
+
+func fetchConcurrently(
+    ids: [Int],
+    service: CourseService
+) async throws -> [CourseDetail] {
+
+    return try await withThrowingTaskGroup(
+        of: CourseDetail.self
+    ) { group in
+
+        var results: [CourseDetail] = []
+
+        // Launch all requests independently.
+        for id in ids {
+            group.addTask {
+                try await service.fetchCourse(id: id)
+            }
+        }
+
+        do {
+            // Collect results as individual tasks finish.
+            for try await course in group {
+                results.append(course)
+            }
+
+        } catch {
+            // R4: Cancel remaining requests if one fails.
+            group.cancelAll()
+
+            print("A child task failed: \(error.localizedDescription)")
+            print("Cancelling remaining requests.")
+
+            throw error
+        }
+
+        return results.sorted { $0.id < $1.id }
+    }
+}
+
+// MARK: - R3: Measure Execution Time
+
+func measureSequentialTime(
+    ids: [Int],
+    service: CourseService
+) async {
+
+    print("\n--- Sequential Fetching ---")
+
+    let startTime = Date()
+
+    do {
+        let courses = try await fetchSequentially(
+            ids: ids,
+            service: service
+        )
+
+        let elapsed = Date().timeIntervalSince(startTime)
+
+        print("Sequential results:")
+        for course in courses {
+            print("\(course.id): \(course.name)")
+        }
+
+        print(String(format: "Sequential time: %.2f seconds", elapsed))
+
+    } catch {
+        print("Sequential fetching failed: \(error.localizedDescription)")
+    }
+}
+
+func measureConcurrentTime(
+    ids: [Int],
+    service: CourseService
+) async {
+
+    print("\n--- Concurrent Fetching ---")
+
+    let startTime = Date()
+
+    do {
+        let courses = try await fetchConcurrently(
+            ids: ids,
+            service: service
+        )
+
+        let elapsed = Date().timeIntervalSince(startTime)
+
+        print("Concurrent results:")
+        for course in courses {
+            print("\(course.id): \(course.name)")
+        }
+
+        print(String(format: "Concurrent time: %.2f seconds", elapsed))
+
+    } catch {
+        let elapsed = Date().timeIntervalSince(startTime)
+
+        print("Concurrent fetching failed: \(error.localizedDescription)")
+        print(String(format: "Time before failure: %.2f seconds", elapsed))
+    }
+}
+
+// MARK: - R5: Cancellation Demonstration
+
+func demonstrateCancellation(
+    ids: [Int],
+    service: CourseService
+) async {
+
+    print("\n--- Cancellation Demonstration ---")
+
+    let fetchTask = Task {
+        try await fetchConcurrently(
+            ids: ids,
+            service: service
+        )
+    }
+
+    // Let the child requests start.
+    try? await Task.sleep(nanoseconds: 300_000_000)
+
+    print("Cancelling parent task...")
+    fetchTask.cancel()
+
+    do {
+        let courses = try await fetchTask.value
+        print("Fetched \(courses.count) courses.")
+
+    } catch is CancellationError {
+        print("Parent task was cancelled.")
+
+    } catch {
+        print("Operation ended with error: \(error.localizedDescription)")
+    }
+}
+
+// MARK: - Main Program
+
+@main
+struct CourseFetchingApp {
+
+    static func main() async {
+
+        let service = CourseService()
+
+        let courseIDs = [101, 102, 104, 105, 106]
+
+        // R3: Compare sequential and concurrent execution.
+        // These IDs do not include the simulated failing ID 103.
+        await measureSequentialTime(
+            ids: courseIDs,
+            service: service
+        )
+
+        await measureConcurrentTime(
+            ids: courseIDs,
+            service: service
+        )
+
+        // R4: Test failure handling.
+        print("\n--- Failure Demonstration ---")
+
+        let failingIDs = [101, 102, 103, 104, 105]
+
+        do {
+            let courses = try await fetchConcurrently(
+                ids: failingIDs,
+                service: service
+            )
+
+            print("Fetched \(courses.count) courses.")
+
+        } catch {
+            print("Whole operation failed: \(error.localizedDescription)")
+        }
+
+        // R5: Test cancellation.
+        await demonstrateCancellation(
+            ids: courseIDs,
+            service: service
+        )
+    }
+}

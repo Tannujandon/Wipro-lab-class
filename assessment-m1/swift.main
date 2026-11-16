@@ -1,0 +1,59 @@
+import Foundation
+
+struct Student {
+    let id: Int
+    let name: String
+    var marks: [String: Double]
+}
+
+var students: [Student] = [
+    Student(id: 101, name: "Aman", marks: ["Swift": 85, "Java": 90]),
+    Student(id: 102, name: "Riya", marks: ["Swift": 92, "Java": 88]),
+    Student(id: 103, name: "Karan", marks: ["Swift": 76, "Java": 81])
+]
+
+// Add a student
+func addStudent(_ student: Student) {
+    students.append(student)
+}
+
+// Safely find a student by ID
+func findStudent(id: Int) -> Student? {
+    return students.first { $0.id == id }
+}
+
+// Safely get marks for a subject
+func getMarks(studentID: Int, subject: String) -> Double? {
+    guard let student = findStudent(id: studentID) else {
+        return nil
+    }
+
+    return student.marks[subject]
+}
+
+// Display student details
+func displayStudent(id: Int) {
+    guard let student = findStudent(id: id) else {
+        print("Student not found.")
+        return
+    }
+
+    print("Name: \(student.name)")
+    print("Marks: \(student.marks)")
+}
+
+// Demonstration
+displayStudent(id: 101)
+
+if let marks = getMarks(studentID: 102, subject: "Swift") {
+    print("Riya's Swift marks: \(marks)")
+} else {
+    print("Marks not available.")
+}
+
+// Missing student and subject
+if let marks = getMarks(studentID: 999, subject: "Swift") {
+    print(marks)
+} else {
+    print("Student or subject not found.")
+}

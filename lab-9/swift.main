@@ -1,0 +1,103 @@
+
+import SwiftUI
+
+struct ContentView: View {
+
+    private var appName: String {
+        Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleDisplayName"
+        ) as? String
+        ?? Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleName"
+        ) as? String
+        ?? "My Application"
+    }
+
+    private var appVersion: String {
+        Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String ?? "Not configured"
+    }
+
+    private var buildNumber: String {
+        Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleVersion"
+        ) as? String ?? "Not configured"
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+
+                Image(systemName: "app.badge.checkmark")
+                    .font(.system(size: 65))
+                    .foregroundStyle(.blue)
+
+                Text(appName)
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+
+                Text("Application Information")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+
+                VStack(spacing: 16) {
+                    InfoRow(
+                        title: "App Version",
+                        value: appVersion
+                    )
+
+                    Divider()
+
+                    InfoRow(
+                        title: "Build Number",
+                        value: buildNumber
+                    )
+
+                    Divider()
+
+                    InfoRow(
+                        title: "Permission Status",
+                        value: "No sensitive permissions required"
+                    )
+                }
+                .padding()
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+
+                Text("This application uses local device resources only and does not request access to the camera, microphone, contacts, or location.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("About App")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
+
+struct InfoRow: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        HStack(alignment: .top) {
+            Text(title)
+                .fontWeight(.medium)
+
+            Spacer()
+
+            Text(value)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.trailing)
+        }
+    }
+}
+
+#Preview {
+    ContentView()
+}

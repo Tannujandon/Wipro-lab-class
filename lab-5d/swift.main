@@ -1,0 +1,109 @@
+
+import Foundation
+
+// MARK: - R1: Unsafe Counter
+
+// WARNING: @unchecked Sendable bypasses compiler safety checks.
+// This class is intentionally unsafe for demonstration purposes.
+
+final class UnsafeCounter: @unchecked Sendable {
+
+    var value = 0
+
+    func increment() {
+        value += 1
+    }
+}
+
+// MARK: - R2: Safe Counter using Actor
+
+actor SafeCounter {
+
+    private var value = 0
+
+    func increment() {
+        value += 1
+    }
+
+    func getValue() -> Int {
+        return value
+    }
+}
+
+// MARK: - Main Program
+
+@main
+struct ConcurrencyDemo {
+
+    static func main() async {
+
+        let numberOfTasks = 5
+        let incrementsPerTask = 1000
+
+        let expectedValue = numberOfTasks * incrementsPerTask
+
+        // --------------------------------
+        // R1: Unsafe Concurrent Counter
+        // --------------------------------
+
+        print("--- Unsafe Counter ---")
+
+        let unsafeCounter = UnsafeCounter()
+
+        await withTaskGroup(of: Void.self) { group in
+
+            for _ in 0..<numberOfTasks {
+
+                group.addTask {
+
+                    for _ in 0..<incrementsPerTask {
+                        unsafeCounter.increment()
+                    }
+                }
+            }
+
+            await group.waitForAll()
+        }
+
+        print("Expected value: \(expectedValue)")
+        print("Actual unsafe value: \(unsafeCounter.value)")
+
+        // --------------------------------
+        // R2: Safe Concurrent Counter
+        // --------------------------------
+
+        print("\n--- Safe Counter using Actor ---")
+
+        let safeCounter = SafeCounter()
+
+        await withTaskGroup(of: Void.self) { group in
+
+            for _ in 0..<numberOfTasks {
+
+                group.addTask {
+
+                    for _ in 0..<incrementsPerTask {
+                        await safeCounter.increment()
+                    }
+                }
+            }
+
+            await group.waitForAll()
+        }
+
+        let safeResult = await safeCounter.getValue()
+
+        print("Expected value: \(expectedValue)")
+        print("Actual safe value: \(safeResult)")
+
+        // --------------------------------
+        // Verify the result
+        // --------------------------------
+
+        if safeResult == expectedValue {
+            print("\nSuccess: Actor protected the counter.")
+        } else {
+            print("\nUnexpected result.")
+        }
+    }
+}

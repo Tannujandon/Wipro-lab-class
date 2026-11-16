@@ -1,0 +1,339 @@
+
+import SwiftUI
+
+// MARK: - 1. MODEL
+
+struct TaskItem: Identifiable, Codable, Sendable {
+    let id: Int
+    let title: String
+    var isCompleted: Bool
+}
+
+struct UserProfile: Codable, Sendable {
+    let name: String
+    let email: String
+}
+
+struct DashboardData: Sendable {
+    let tasks: [TaskItem]
+    let profile: UserProfile
+}
+
+// MARK: - 2. SERVICE PROTOCOL
+
+protocol TaskDataService: Sendable {
+    func fetchTasks() async throws -> [TaskItem]
+    func fetchProfile() async throws -> UserProfile
+}
+
+// MARK: - 3. MOCK DATA SERVICE
+
+struct MockTaskDataService: TaskDataService {
+
+    let shouldFail: Bool
+
+    init(shouldFail: Bool = false) {
+        self.shouldFail = shouldFail
+    }
+
+    func fetchTasks() async throws -> [TaskItem] {
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        try Task.checkCancellation()
+
+        if shouldFail {
+            throw URLError(.badServerResponse)
+        }
+
+        return [
+            TaskItem(id: 1, title: "Complete Swift assignment", isCompleted: false),
+            TaskItem(id: 2, title: "Practice async/await", isCompleted: true),
+            TaskItem(id: 3, title: "Prepare for interview", isCompleted: false)
+        ]
+    }
+
+    func fetchProfile() async throws -> UserProfile {
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        try Task.checkCancellation()
+
+        if shouldFail {
+            throw URLError(.badServerResponse)
+        }
+
+        return UserProfile(
+            name: "Student",
+            email: "student@example.com"
+        )
+    }
+}
+
+// MARK: - 4. VIEW MODEL (MVVM)
+
+@MainActor
+final class TaskViewModel: ObservableObject {
+
+    enum ViewState {
+        case idle
+        case loading
+        case success(DashboardData)
+        case error(String)
+        case cancelled
+    }
+
+    @Published private(set) var state: ViewState = .idle
+
+    private let service: any TaskDataService
+    private var fetchTask: Task<Void, Never>?
+
+    init(service: any TaskDataService = MockTaskDataService()) {
+        self.service = service
+    }
+
+    // Fetch two independent sources concurrently
+    func loadData() {
+        fetchTask?.cancel()
+        state = .loading
+
+        fetchTask = Task {
+            do {
+                async let tasks = service.fetchTasks()
+                async let profile = service.fetchProfile()
+
+                let fetchedTasks = try await tasks
+                let fetchedProfile = try await profile
+
+                try Task.checkCancellation()
+
+                let dashboard = DashboardData(
+                    tasks: fetchedTasks,
+                    profile: fetchedProfile
+                )
+
+                state = .success(dashboard)
+
+            } catch is CancellationError {
+                state = .cancelled
+
+            } catch {
+                if Task.isCancelled {
+                    state = .cancelled
+                } else {
+                    state = .error(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    // Cancel ongoing operation
+    func cancelLoading() {
+        fetchTask?.cancel()
+        fetchTask = nil
+        state = .cancelled
+    }
+
+    // Reset ViewModel
+    func reset() {
+        fetchTask?.cancel()
+        fetchTask = nil
+        state = .idle
+    }
+
+    // Toggle task completion
+    func toggleTask(_ task: TaskItem, in dashboard: DashboardData) {
+        var updatedTasks = dashboard.tasks
+
+        guard let index = updatedTasks.firstIndex(where: {
+            $0.id == task.id
+        }) else {
+            return
+        }
+
+        updatedTasks[index].isCompleted.toggle()
+
+        let updatedDashboard = DashboardData(
+            tasks: updatedTasks,
+            profile: dashboard.profile
+        )
+
+        state = .success(updatedDashboard)
+    }
+}
+
+// MARK: - 5. VIEW
+
+struct ContentView: View {
+
+    @StateObject private var viewModel = TaskViewModel()
+
+    var body: some View {
+
+        NavigationStack {
+
+            VStack(spacing: 20) {
+
+                switch viewModel.state {
+
+                case .idle:
+
+                    Image(systemName: "list.bullet.clipboard")
+                        .font(.system(size: 50))
+
+                    Text("Welcome to Task Manager")
+                        .font(.title2)
+
+                    Button("Load Dashboard") {
+                        viewModel.loadData()
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                case .loading:
+
+                    ProgressView("Loading data...")
+                        .padding()
+
+                    Button("Cancel Loading") {
+                        viewModel.cancelLoading()
+                    }
+                    .buttonStyle(.bordered)
+
+                case .success(let dashboard):
+
+                    VStack(alignment: .leading, spacing: 12) {
+
+                        Text("Welcome, \(dashboard.profile.name)")
+                            .font(.title2)
+                            .bold()
+
+                        Text(dashboard.profile.email)
+                            .foregroundColor(.secondary)
+
+                        Divider()
+
+                        Text("My Tasks")
+                            .font(.headline)
+
+                        List(dashboard.tasks) { task in
+
+                            HStack {
+
+                                Button {
+                                    viewModel.toggleTask(
+                                        task,
+                                        in: dashboard
+                                    )
+                                } label: {
+                                    Image(
+                                        systemName: task.isCompleted
+                                        ? "checkmark.circle.fill"
+                                        : "circle"
+                                    )
+                                }
+                                .buttonStyle(.plain)
+
+                                Text(task.title)
+                                    .strikethrough(task.isCompleted)
+                            }
+                        }
+                        .listStyle(.plain)
+
+                        Button("Refresh Dashboard") {
+                            viewModel.loadData()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+
+                case .error(let message):
+
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundColor(.red)
+
+                    Text("Something went wrong")
+                        .font(.headline)
+
+                    Text(message)
+                        .foregroundColor(.secondary)
+
+                    Button("Try Again") {
+                        viewModel.loadData()
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                case .cancelled:
+
+                    Image(systemName: "xmark.circle")
+                        .font(.largeTitle)
+
+                    Text("Loading was cancelled.")
+
+                    Button("Load Again") {
+                        viewModel.loadData()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+            .padding()
+            .navigationTitle("Task Dashboard")
+        }
+    }
+}
+
+// MARK: - 6. APP ENTRY POINT
+
+@main
+struct TaskManagerApp: App {
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}
+
+// MARK: - 7. SIMPLE VIEW MODEL TESTS
+// Run these checks manually by calling runViewModelChecks()
+// from a Task in a development build.
+
+@MainActor
+func runViewModelChecks() async {
+
+    // Test successful fetch
+    let successVM = TaskViewModel(
+        service: MockTaskDataService()
+    )
+
+    successVM.loadData()
+
+    try? await Task.sleep(nanoseconds: 2_500_000_000)
+
+    if case .success(let dashboard) = successVM.state {
+        print("SUCCESS TEST PASSED")
+        print("Tasks:", dashboard.tasks.count)
+        print("Profile:", dashboard.profile.name)
+    } else {
+        print("SUCCESS TEST FAILED")
+    }
+
+    // Test error state
+    let errorVM = TaskViewModel(
+        service: MockTaskDataService(shouldFail: true)
+    )
+
+    errorVM.loadData()
+
+    try? await Task.sleep(nanoseconds: 2_500_000_000)
+
+    if case .error = errorVM.state {
+        print("ERROR TEST PASSED")
+    } else {
+        print("ERROR TEST FAILED")
+    }
+
+    // Test reset state
+    let resetVM = TaskViewModel()
+
+    resetVM.reset()
+
+    if case .idle = resetVM.state {
+        print("RESET TEST PASSED")
+    }
+}

@@ -1,0 +1,120 @@
+
+import UIKit
+
+class ViewController: UIViewController {
+
+    // MARK: - UI Components
+
+    private let titleLabel = UILabel()
+    private let startButton = UIButton(type: .system)
+    private let loadingIndicator = UIActivityIndicatorView(style: .large)
+    private let resultLabel = UILabel()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        setupUI()
+        print("viewDidLoad - Main Thread: \(Thread.isMainThread)")
+    }
+
+    // MARK: - UI Setup
+
+    private func setupUI() {
+
+        view.backgroundColor = .systemBackground
+
+        titleLabel.text = "Background Task Demo"
+        titleLabel.font = .boldSystemFont(ofSize: 24)
+        titleLabel.textAlignment = .center
+
+        startButton.setTitle("Start Operation", for: .normal)
+        startButton.titleLabel?.font = .systemFont(ofSize: 18)
+        startButton.backgroundColor = .systemBlue
+        startButton.setTitleColor(.white, for: .normal)
+        startButton.layer.cornerRadius = 10
+        startButton.addTarget(
+            self,
+            action: #selector(startOperation),
+            for: .touchUpInside
+        )
+
+        loadingIndicator.hidesWhenStopped = true
+
+        resultLabel.text = "Waiting for operation..."
+        resultLabel.textAlignment = .center
+        resultLabel.numberOfLines = 0
+
+        let stack = UIStackView(arrangedSubviews: [
+            titleLabel,
+            startButton,
+            loadingIndicator,
+            resultLabel
+        ])
+
+        stack.axis = .vertical
+        stack.spacing = 25
+        stack.alignment = .fill
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        view.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            stack.leadingAnchor.constraint(
+                equalTo: view.leadingAnchor,
+                constant: 30
+            ),
+            stack.trailingAnchor.constraint(
+                equalTo: view.trailingAnchor,
+                constant: -30
+            ),
+            startButton.heightAnchor.constraint(equalToConstant: 50)
+        ])
+    }
+
+    // MARK: - R1, R2, R3 and R4
+
+    @objc private func startOperation() {
+
+        // Prevent duplicate submissions.
+        startButton.isEnabled = false
+        startButton.alpha = 0.5
+
+        resultLabel.text = "Loading..."
+        loadingIndicator.startAnimating()
+
+        print("Button tapped - Main Thread: \(Thread.isMainThread)")
+
+        // R2: Perform slow work on a background queue.
+        DispatchQueue.global(qos: .userInitiated).async {
+
+            print("Background work started")
+            print("Background Thread: \(Thread.isMainThread)")
+
+            // R3: Simulate a delayed response.
+            DispatchQueue.global().asyncAfter(
+                deadline: .now() + 5
+            ) {
+
+                let result = "Operation completed successfully!"
+
+                print("Background operation completed")
+                print("Completion Thread: \(Thread.isMainThread)")
+
+                // R2: Update UI on the main queue.
+                DispatchQueue.main.async {
+
+                    print("UI Update Thread: \(Thread.isMainThread)")
+
+                    self.resultLabel.text = result
+
+                    self.loadingIndicator.stopAnimating()
+
+                    // Allow another submission.
+                    self.startButton.isEnabled = true
+                    self.startButton.alpha = 1.0
+                }
+            }
+        }
+    }
+}

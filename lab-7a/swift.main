@@ -1,0 +1,626 @@
+
+import UIKit
+
+// MARK: - R1: Profile Form View Controller
+
+class ViewController: UIViewController {
+
+    // MARK: UI Components
+
+    private let scrollView = UIScrollView()
+    private let contentView = UIView()
+
+    private let titleLabel = UILabel()
+    private let subtitleLabel = UILabel()
+
+    private let nameLabel = UILabel()
+    private let nameTextField = UITextField()
+    private let nameErrorLabel = UILabel()
+
+    private let emailLabel = UILabel()
+    private let emailTextField = UITextField()
+    private let emailErrorLabel = UILabel()
+
+    private let courseLabel = UILabel()
+    private let courseTextField = UITextField()
+    private let courseErrorLabel = UILabel()
+
+    private let submitButton = UIButton(type: .system)
+
+    private let coursePicker = UIPickerView()
+
+    private let courses = [
+        "Computer Science",
+        "Information Technology",
+        "Mechanical Engineering",
+        "Civil Engineering",
+        "Electronics Engineering",
+        "Electrical Engineering"
+    ]
+
+    // MARK: View Lifecycle
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        view.backgroundColor = .systemBackground
+
+        setupUI()
+        setupConstraints()
+        setupKeyboardHandling()
+        setupCoursePicker()
+        setupDismissKeyboard()
+    }
+
+    // MARK: - Setup UI
+
+    private func setupUI() {
+
+        // Scroll View
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentView)
+
+        // Title
+        titleLabel.text = "Create Profile"
+        titleLabel.font = .boldSystemFont(ofSize: 30)
+        titleLabel.textAlignment = .center
+
+        subtitleLabel.text = "Enter your details below"
+        subtitleLabel.font = .systemFont(ofSize: 16)
+        subtitleLabel.textColor = .secondaryLabel
+        subtitleLabel.textAlignment = .center
+
+        // Name Field
+        nameLabel.text = "Full Name"
+        nameLabel.font = .boldSystemFont(ofSize: 16)
+
+        nameTextField.placeholder = "Enter your full name"
+        nameTextField.borderStyle = .roundedRect
+        nameTextField.autocapitalizationType = .words
+        nameTextField.textContentType = .name
+        nameTextField.returnKeyType = .next
+        nameTextField.accessibilityLabel = "Full name"
+
+        configureErrorLabel(nameErrorLabel)
+
+        // Email Field
+        emailLabel.text = "Email Address"
+        emailLabel.font = .boldSystemFont(ofSize: 16)
+
+        emailTextField.placeholder = "Enter your email"
+        emailTextField.borderStyle = .roundedRect
+        emailTextField.keyboardType = .emailAddress
+        emailTextField.autocapitalizationType = .none
+        emailTextField.autocorrectionType = .no
+        emailTextField.textContentType = .emailAddress
+        emailTextField.returnKeyType = .next
+        emailTextField.accessibilityLabel = "Email address"
+
+        configureErrorLabel(emailErrorLabel)
+
+        // Course Field
+        courseLabel.text = "Select Course"
+        courseLabel.font = .boldSystemFont(ofSize: 16)
+
+        courseTextField.placeholder = "Choose your course"
+        courseTextField.borderStyle = .roundedRect
+        courseTextField.accessibilityLabel = "Course"
+
+        configureErrorLabel(courseErrorLabel)
+
+        // Submit Button
+        submitButton.setTitle("Submit Profile", for: .normal)
+        submitButton.titleLabel?.font = .boldSystemFont(ofSize: 18)
+        submitButton.backgroundColor = .systemBlue
+        submitButton.setTitleColor(.white, for: .normal)
+        submitButton.layer.cornerRadius = 10
+        submitButton.accessibilityLabel = "Submit profile"
+
+        submitButton.addTarget(
+            self,
+            action: #selector(submitForm),
+            for: .touchUpInside
+        )
+
+        // Add components
+        let components: [UIView] = [
+            titleLabel,
+            subtitleLabel,
+            nameLabel,
+            nameTextField,
+            nameErrorLabel,
+            emailLabel,
+            emailTextField,
+            emailErrorLabel,
+            courseLabel,
+            courseTextField,
+            courseErrorLabel,
+            submitButton
+        ]
+
+        components.forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview($0)
+        }
+    }
+
+    // MARK: - Error Label Configuration
+
+    private func configureErrorLabel(_ label: UILabel) {
+        label.textColor = .systemRed
+        label.font = .systemFont(ofSize: 13)
+        label.numberOfLines = 0
+        label.isHidden = true
+        label.accessibilityTraits = .staticText
+    }
+
+    // MARK: R2: Auto Layout Constraints
+
+    private func setupConstraints() {
+
+        NSLayoutConstraint.activate([
+
+            // Scroll View
+            scrollView.topAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.topAnchor
+            ),
+
+            scrollView.leadingAnchor.constraint(
+                equalTo: view.leadingAnchor
+            ),
+
+            scrollView.trailingAnchor.constraint(
+                equalTo: view.trailingAnchor
+            ),
+
+            scrollView.bottomAnchor.constraint(
+                equalTo: view.bottomAnchor
+            ),
+
+            // Content View
+            contentView.topAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.topAnchor
+            ),
+
+            contentView.leadingAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.leadingAnchor
+            ),
+
+            contentView.trailingAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.trailingAnchor
+            ),
+
+            contentView.bottomAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.bottomAnchor
+            ),
+
+            contentView.widthAnchor.constraint(
+                equalTo: scrollView.frameLayoutGuide.widthAnchor
+            ),
+
+            // Title
+            titleLabel.topAnchor.constraint(
+                equalTo: contentView.topAnchor,
+                constant: 35
+            ),
+
+            titleLabel.leadingAnchor.constraint(
+                equalTo: contentView.leadingAnchor,
+                constant: 24
+            ),
+
+            titleLabel.trailingAnchor.constraint(
+                equalTo: contentView.trailingAnchor,
+                constant: -24
+            ),
+
+            // Subtitle
+            subtitleLabel.topAnchor.constraint(
+                equalTo: titleLabel.bottomAnchor,
+                constant: 10
+            ),
+
+            subtitleLabel.leadingAnchor.constraint(
+                equalTo: contentView.leadingAnchor,
+                constant: 24
+            ),
+
+            subtitleLabel.trailingAnchor.constraint(
+                equalTo: contentView.trailingAnchor,
+                constant: -24
+            ),
+
+            // Name Label
+            nameLabel.topAnchor.constraint(
+                equalTo: subtitleLabel.bottomAnchor,
+                constant: 35
+            ),
+
+            nameLabel.leadingAnchor.constraint(
+                equalTo: contentView.leadingAnchor,
+                constant: 24
+            ),
+
+            nameLabel.trailingAnchor.constraint(
+                equalTo: contentView.trailingAnchor,
+                constant: -24
+            ),
+
+            // Name Field
+            nameTextField.topAnchor.constraint(
+                equalTo: nameLabel.bottomAnchor,
+                constant: 8
+            ),
+
+            nameTextField.leadingAnchor.constraint(
+                equalTo: nameLabel.leadingAnchor
+            ),
+
+            nameTextField.trailingAnchor.constraint(
+                equalTo: nameLabel.trailingAnchor
+            ),
+
+            nameTextField.heightAnchor.constraint(equalToConstant: 50),
+
+            // Name Error
+            nameErrorLabel.topAnchor.constraint(
+                equalTo: nameTextField.bottomAnchor,
+                constant: 4
+            ),
+
+            nameErrorLabel.leadingAnchor.constraint(
+                equalTo: nameLabel.leadingAnchor
+            ),
+
+            nameErrorLabel.trailingAnchor.constraint(
+                equalTo: nameLabel.trailingAnchor
+            ),
+
+            // Email Label
+            emailLabel.topAnchor.constraint(
+                equalTo: nameErrorLabel.bottomAnchor,
+                constant: 20
+            ),
+
+            emailLabel.leadingAnchor.constraint(
+                equalTo: nameLabel.leadingAnchor
+            ),
+
+            emailLabel.trailingAnchor.constraint(
+                equalTo: nameLabel.trailingAnchor
+            ),
+
+            // Email Field
+            emailTextField.topAnchor.constraint(
+                equalTo: emailLabel.bottomAnchor,
+                constant: 8
+            ),
+
+            emailTextField.leadingAnchor.constraint(
+                equalTo: emailLabel.leadingAnchor
+            ),
+
+            emailTextField.trailingAnchor.constraint(
+                equalTo: emailLabel.trailingAnchor
+            ),
+
+            emailTextField.heightAnchor.constraint(equalToConstant: 50),
+
+            // Email Error
+            emailErrorLabel.topAnchor.constraint(
+                equalTo: emailTextField.bottomAnchor,
+                constant: 4
+            ),
+
+            emailErrorLabel.leadingAnchor.constraint(
+                equalTo: emailLabel.leadingAnchor
+            ),
+
+            emailErrorLabel.trailingAnchor.constraint(
+                equalTo: emailLabel.trailingAnchor
+            ),
+
+            // Course Label
+            courseLabel.topAnchor.constraint(
+                equalTo: emailErrorLabel.bottomAnchor,
+                constant: 20
+            ),
+
+            courseLabel.leadingAnchor.constraint(
+                equalTo: nameLabel.leadingAnchor
+            ),
+
+            courseLabel.trailingAnchor.constraint(
+                equalTo: nameLabel.trailingAnchor
+            ),
+
+            // Course Field
+            courseTextField.topAnchor.constraint(
+                equalTo: courseLabel.bottomAnchor,
+                constant: 8
+            ),
+
+            courseTextField.leadingAnchor.constraint(
+                equalTo: courseLabel.leadingAnchor
+            ),
+
+            courseTextField.trailingAnchor.constraint(
+                equalTo: courseLabel.trailingAnchor
+            ),
+
+            courseTextField.heightAnchor.constraint(equalToConstant: 50),
+
+            // Course Error
+            courseErrorLabel.topAnchor.constraint(
+                equalTo: courseTextField.bottomAnchor,
+                constant: 4
+            ),
+
+            courseErrorLabel.leadingAnchor.constraint(
+                equalTo: courseLabel.leadingAnchor
+            ),
+
+            courseErrorLabel.trailingAnchor.constraint(
+                equalTo: courseLabel.trailingAnchor
+            ),
+
+            // Submit Button
+            submitButton.topAnchor.constraint(
+                equalTo: courseErrorLabel.bottomAnchor,
+                constant: 30
+            ),
+
+            submitButton.leadingAnchor.constraint(
+                equalTo: courseLabel.leadingAnchor
+            ),
+
+            submitButton.trailingAnchor.constraint(
+                equalTo: courseLabel.trailingAnchor
+            ),
+
+            submitButton.heightAnchor.constraint(equalToConstant: 55),
+
+            submitButton.bottomAnchor.constraint(
+                equalTo: contentView.bottomAnchor,
+                constant: -35
+            )
+        ])
+    }
+
+    // MARK: - Course Picker
+
+    private func setupCoursePicker() {
+
+        coursePicker.delegate = self
+        coursePicker.dataSource = self
+
+        courseTextField.inputView = coursePicker
+
+        let toolbar = UIToolbar()
+        toolbar.sizeToFit()
+
+        let doneButton = UIBarButtonItem(
+            title: "Done",
+            style: .done,
+            target: self,
+            action: #selector(doneSelectingCourse)
+        )
+
+        toolbar.setItems([doneButton], animated: false)
+
+        courseTextField.inputAccessoryView = toolbar
+    }
+
+    @objc private func doneSelectingCourse() {
+
+        let selectedIndex = coursePicker.selectedRow(inComponent: 0)
+
+        courseTextField.text = courses[selectedIndex]
+
+        courseTextField.resignFirstResponder()
+    }
+
+    // MARK: R4: Keyboard Handling
+
+    private func setupKeyboardHandling() {
+
+        nameTextField.delegate = self
+        emailTextField.delegate = self
+        courseTextField.delegate = self
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardWillShow),
+            name: UIResponder.keyboardWillShowNotification,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardWillHide),
+            name: UIResponder.keyboardWillHideNotification,
+            object: nil
+        )
+    }
+
+    @objc private func keyboardWillShow(_ notification: Notification) {
+
+        guard
+            let keyboardFrame = notification.userInfo?[
+                UIResponder.keyboardFrameEndUserInfoKey
+            ] as? CGRect
+        else {
+            return
+        }
+
+        scrollView.contentInset.bottom = keyboardFrame.height
+        scrollView.scrollIndicatorInsets.bottom = keyboardFrame.height
+    }
+
+    @objc private func keyboardWillHide(_ notification: Notification) {
+
+        scrollView.contentInset.bottom = 0
+        scrollView.scrollIndicatorInsets.bottom = 0
+    }
+
+    private func setupDismissKeyboard() {
+
+        let tapGesture = UITapGestureRecognizer(
+            target: self,
+            action: #selector(dismissKeyboard)
+        )
+
+        tapGesture.cancelsTouchesInView = false
+        view.addGestureRecognizer(tapGesture)
+    }
+
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    // MARK: R3: Form Validation
+
+    @objc private func submitForm() {
+
+        view.endEditing(true)
+
+        let name = nameTextField.text?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        let email = emailTextField.text?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        let course = courseTextField.text?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        var isValid = true
+
+        // Name Validation
+        if name.isEmpty {
+            showError(nameErrorLabel, message: "Please enter your name.")
+            isValid = false
+        } else {
+            hideError(nameErrorLabel)
+        }
+
+        // Email Validation
+        if email.isEmpty {
+            showError(emailErrorLabel, message: "Please enter your email.")
+            isValid = false
+
+        } else if !isValidEmail(email) {
+            showError(emailErrorLabel, message: "Please enter a valid email address.")
+            isValid = false
+
+        } else {
+            hideError(emailErrorLabel)
+        }
+
+        // Course Validation
+        if course.isEmpty {
+            showError(courseErrorLabel, message: "Please select a course.")
+            isValid = false
+        } else {
+            hideError(courseErrorLabel)
+        }
+
+        guard isValid else {
+            return
+        }
+
+        let alert = UIAlertController(
+            title: "Profile Submitted",
+            message: """
+            Name: \(name)
+            Email: \(email)
+            Course: \(course)
+            """,
+            preferredStyle: .alert
+        )
+
+        alert.addAction(
+            UIAlertAction(title: "OK", style: .default)
+        )
+
+        present(alert, animated: true)
+    }
+
+    private func showError(_ label: UILabel, message: String) {
+        label.text = message
+        label.isHidden = false
+    }
+
+    private func hideError(_ label: UILabel) {
+        label.text = nil
+        label.isHidden = true
+    }
+
+    private func isValidEmail(_ email: String) -> Bool {
+
+        let pattern = #"^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"#
+
+        return email.range(
+            of: pattern,
+            options: .regularExpression
+        ) != nil
+    }
+}
+
+// MARK: - R4: Text Field Delegate
+
+extension ViewController: UITextFieldDelegate {
+
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+
+        if textField == nameTextField {
+            emailTextField.becomeFirstResponder()
+
+        } else if textField == emailTextField {
+            courseTextField.becomeFirstResponder()
+
+        } else {
+            textField.resignFirstResponder()
+        }
+
+        return true
+    }
+}
+
+// MARK: - Course Picker Delegate
+
+extension ViewController: UIPickerViewDelegate, UIPickerViewDataSource {
+
+    func numberOfComponents(in pickerView: UIPickerView) -> Int {
+        return 1
+    }
+
+    func pickerView(
+        _ pickerView: UIPickerView,
+        numberOfRowsInComponent component: Int
+    ) -> Int {
+        return courses.count
+    }
+
+    func pickerView(
+        _ pickerView: UIPickerView,
+        titleForRow row: Int,
+        forComponent component: Int
+    ) -> String? {
+        return courses[row]
+    }
+
+    func pickerView(
+        _ pickerView: UIPickerView,
+        didSelectRow row: Int,
+        inComponent component: Int
+    ) {
+        courseTextField.text = courses[row]
+    }
+}

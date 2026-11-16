@@ -1,0 +1,291 @@
+
+import SwiftUI
+
+// MARK: - R1: API Endpoint
+
+let postsAPI = "https://jsonplaceholder.typicode.com/posts"
+
+// MARK: - R2: Codable Model
+
+struct Post: Codable, Identifiable {
+    let userId: Int
+    let id: Int
+    let title: String
+    let body: String
+}
+
+// MARK: - API Errors
+
+enum APIError: LocalizedError {
+    case invalidURL
+    case invalidResponse
+    case httpError(Int)
+    case decodingError
+    case emptyResults
+    case networkError(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL:
+            return "The API URL is invalid."
+
+        case .invalidResponse:
+            return "The server returned an invalid response."
+
+        case .httpError(let statusCode):
+            return "Server error. HTTP Status Code: \(statusCode)"
+
+        case .decodingError:
+            return "Unable to decode the server response."
+
+        case .emptyResults:
+            return "No posts were found."
+
+        case .networkError(let message):
+            return "Network error: \(message)"
+        }
+    }
+}
+
+// MARK: - R3: API Service
+
+struct PostService {
+
+    func fetchPosts(from endpoint: String = postsAPI) async throws -> [Post] {
+
+        // Create URL using URLComponents
+        guard let components = URLComponents(string: endpoint),
+              let url = components.url else {
+            throw APIError.invalidURL
+        }
+
+        // Create URLRequest
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(
+            "application/json",
+            forHTTPHeaderField: "Accept"
+        )
+
+        do {
+            // Fetch data using URLSession and async/await
+            let (data, response) = try await URLSession.shared.data(
+                for: request
+            )
+
+            // Validate HTTP response
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIError.invalidResponse
+            }
+
+            // Check HTTP status code
+            guard (200...299).contains(httpResponse.statusCode) else {
+                throw APIError.httpError(httpResponse.statusCode)
+            }
+
+            // Decode JSON response
+            let decoder = JSONDecoder()
+
+            let posts: [Post]
+
+            do {
+                posts = try decoder.decode([Post].self, from: data)
+            } catch {
+                throw APIError.decodingError
+            }
+
+            // Handle empty response
+            guard !posts.isEmpty else {
+                throw APIError.emptyResults
+            }
+
+            return posts
+
+        } catch let error as APIError {
+            throw error
+
+        } catch is CancellationError {
+            throw CancellationError()
+
+        } catch {
+            // Network failure
+            throw APIError.networkError(error.localizedDescription)
+        }
+    }
+}
+
+// MARK: - ViewModel
+
+@MainActor
+final class PostViewModel: ObservableObject {
+
+    @Published var posts: [Post] = []
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+
+    private let service = PostService()
+
+    func fetchPosts() async {
+
+        isLoading = true
+        errorMessage = nil
+
+        defer {
+            isLoading = false
+        }
+
+        do {
+            posts = try await service.fetchPosts()
+
+        } catch is CancellationError {
+            errorMessage = "The request was cancelled."
+
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - R4: Main List View
+
+struct ContentView: View {
+
+    @StateObject private var viewModel = PostViewModel()
+
+    var body: some View {
+
+        NavigationStack {
+
+            Group {
+
+                if viewModel.isLoading {
+
+                    ProgressView("Loading posts...")
+                        .font(.headline)
+
+                } else if let error = viewModel.errorMessage {
+
+                    VStack(spacing: 15) {
+
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 45))
+                            .foregroundColor(.red)
+
+                        Text("Something went wrong")
+                            .font(.title2)
+                            .bold()
+
+                        Text(error)
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(.secondary)
+
+                        Button("Try Again") {
+                            Task {
+                                await viewModel.fetchPosts()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .padding()
+
+                } else {
+
+                    List(viewModel.posts) { post in
+
+                        NavigationLink(destination: PostDetailView(post: post)) {
+
+                            VStack(alignment: .leading, spacing: 8) {
+
+                                Text(post.title.capitalized)
+                                    .font(.headline)
+                                    .lineLimit(2)
+
+                                Text(post.body)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(2)
+
+                                Text("Post ID: \(post.id)")
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                            }
+                            .padding(.vertical, 5)
+                        }
+                    }
+                    .listStyle(.plain)
+                    .refreshable {
+                        await viewModel.fetchPosts()
+                    }
+                }
+            }
+            .navigationTitle("Posts")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task {
+                            await viewModel.fetchPosts()
+                        }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(viewModel.isLoading)
+                }
+            }
+            .task {
+                await viewModel.fetchPosts()
+            }
+        }
+    }
+}
+
+// MARK: - R4: Detail View
+
+struct PostDetailView: View {
+
+    let post: Post
+
+    var body: some View {
+
+        ScrollView {
+
+            VStack(alignment: .leading, spacing: 20) {
+
+                Text("Post #\(post.id)")
+                    .font(.caption)
+                    .foregroundColor(.blue)
+
+                Text(post.title.capitalized)
+                    .font(.largeTitle)
+                    .bold()
+
+                Divider()
+
+                Text(post.body)
+                    .font(.body)
+                    .lineSpacing(8)
+
+                Divider()
+
+                Text("User ID: \(post.userId)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+            }
+            .padding()
+        }
+        .navigationTitle("Post Details")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - App Entry Point
+
+@main
+struct PostsAPIApp: App {
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}

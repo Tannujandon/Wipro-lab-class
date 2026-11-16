@@ -1,0 +1,781 @@
+
+import UIKit
+
+// MARK: - APP DELEGATE
+
+@main
+class AppDelegate: UIResponder, UIApplicationDelegate {
+
+    var window: UIWindow?
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
+
+        window = UIWindow(frame: UIScreen.main.bounds)
+
+        let navigationController = UINavigationController(
+            rootViewController: ProfileViewController()
+        )
+
+        window?.rootViewController = navigationController
+        window?.makeKeyAndVisible()
+
+        return true
+    }
+}
+
+// MARK: - R2: CODABLE MODEL
+
+struct Post: Codable, Identifiable {
+    let userId: Int
+    let id: Int
+    let title: String
+    let body: String
+}
+
+// MARK: - API ERRORS
+
+enum PostAPIError: LocalizedError {
+    case invalidURL
+    case invalidResponse
+    case httpError(Int)
+    case decodingError
+    case emptyResults
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL:
+            return "The API URL is invalid."
+        case .invalidResponse:
+            return "Invalid server response."
+        case .httpError(let code):
+            return "Server returned HTTP error \(code)."
+        case .decodingError:
+            return "Unable to decode the JSON response."
+        case .emptyResults:
+            return "No posts are available."
+        }
+    }
+}
+
+// MARK: - API SERVICE
+
+struct PostService {
+
+    func fetchPosts() async throws -> [Post] {
+
+        guard let url = URL(string:
+            "https://jsonplaceholder.typicode.com/posts"
+        ) else {
+            throw PostAPIError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(
+            "application/json",
+            forHTTPHeaderField: "Accept"
+        )
+
+        let (data, response) = try await URLSession.shared.data(
+            for: request
+        )
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw PostAPIError.invalidResponse
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw PostAPIError.httpError(httpResponse.statusCode)
+        }
+
+        let posts: [Post]
+
+        do {
+            posts = try JSONDecoder().decode([Post].self, from: data)
+        } catch {
+            throw PostAPIError.decodingError
+        }
+
+        guard !posts.isEmpty else {
+            throw PostAPIError.emptyResults
+        }
+
+        return posts
+    }
+}
+
+// MARK: - R1: PROFILE FORM
+
+@MainActor
+class ProfileViewController: UIViewController {
+
+    private let nameField = UITextField()
+    private let emailField = UITextField()
+    private let courseField = UITextField()
+    private let submitButton = UIButton(type: .system)
+
+    private let nameError = UILabel()
+    private let emailError = UILabel()
+    private let courseError = UILabel()
+
+    private let scrollView = UIScrollView()
+    private let stackView = UIStackView()
+
+    private let courses = [
+        "Computer Science",
+        "Information Technology",
+        "Mechanical Engineering",
+        "Electronics Engineering"
+    ]
+
+    private let coursePicker = UIPickerView()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        view.backgroundColor = .systemBackground
+        title = "Profile Form"
+
+        setupUI()
+        setupConstraints()
+        setupCoursePicker()
+        setupKeyboard()
+    }
+
+    // MARK: Form UI
+
+    private func setupUI() {
+
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+
+        stackView.axis = .vertical
+        stackView.spacing = 12
+        stackView.alignment = .fill
+
+        view.addSubview(scrollView)
+        scrollView.addSubview(stackView)
+
+        let heading = UILabel()
+        heading.text = "Create Your Profile"
+        heading.font = .boldSystemFont(ofSize: 27)
+        heading.textAlignment = .center
+
+        let subtitle = UILabel()
+        subtitle.text = "Enter your details to continue."
+        subtitle.textColor = .secondaryLabel
+        subtitle.textAlignment = .center
+
+        configureField(
+            nameField,
+            placeholder: "Enter full name",
+            contentType: .name,
+            keyboard: .default
+        )
+
+        configureField(
+            emailField,
+            placeholder: "Enter email address",
+            contentType: .emailAddress,
+            keyboard: .emailAddress
+        )
+
+        configureField(
+            courseField,
+            placeholder: "Select your course",
+            contentType: nil,
+            keyboard: .default
+        )
+
+        configureError(nameError)
+        configureError(emailError)
+        configureError(courseError)
+
+        submitButton.setTitle("Submit and View Posts", for: .normal)
+        submitButton.backgroundColor = .systemBlue
+        submitButton.setTitleColor(.white, for: .normal)
+        submitButton.titleLabel?.font = .boldSystemFont(ofSize: 17)
+        submitButton.layer.cornerRadius = 10
+        submitButton.heightAnchor.constraint(equalToConstant: 52).isActive = true
+
+        submitButton.addTarget(
+            self,
+            action: #selector(submitForm),
+            for: .touchUpInside
+        )
+
+        stackView.addArrangedSubview(heading)
+        stackView.addArrangedSubview(subtitle)
+
+        addField(
+            title: "Full Name",
+            field: nameField,
+            error: nameError
+        )
+
+        addField(
+            title: "Email Address",
+            field: emailField,
+            error: emailError
+        )
+
+        addField(
+            title: "Course",
+            field: courseField,
+            error: courseError
+        )
+
+        stackView.addArrangedSubview(submitButton)
+    }
+
+    private func configureField(
+        _ field: UITextField,
+        placeholder: String,
+        contentType: UITextContentType?,
+        keyboard: UIKeyboardType
+    ) {
+        field.placeholder = placeholder
+        field.borderStyle = .roundedRect
+        field.keyboardType = keyboard
+        field.autocorrectionType = .no
+        field.translatesAutoresizingMaskIntoConstraints = false
+        field.heightAnchor.constraint(equalToConstant: 48).isActive = true
+        field.accessibilityLabel = placeholder
+
+        if let contentType {
+            field.textContentType = contentType
+        }
+
+        if keyboard == .emailAddress {
+            field.autocapitalizationType = .none
+        }
+    }
+
+    private func configureError(_ label: UILabel) {
+        label.textColor = .systemRed
+        label.font = .systemFont(ofSize: 13)
+        label.numberOfLines = 0
+        label.isHidden = true
+    }
+
+    private func addField(
+        title: String,
+        field: UITextField,
+        error: UILabel
+    ) {
+        let label = UILabel()
+        label.text = title
+        label.font = .boldSystemFont(ofSize: 16)
+
+        stackView.addArrangedSubview(label)
+        stackView.addArrangedSubview(field)
+        stackView.addArrangedSubview(error)
+    }
+
+    // MARK: Auto Layout
+
+    private func setupConstraints() {
+
+        NSLayoutConstraint.activate([
+
+            scrollView.topAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.topAnchor
+            ),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            stackView.topAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.topAnchor,
+                constant: 30
+            ),
+            stackView.leadingAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.leadingAnchor,
+                constant: 24
+            ),
+            stackView.trailingAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.trailingAnchor,
+                constant: -24
+            ),
+            stackView.bottomAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.bottomAnchor,
+                constant: -30
+            ),
+            stackView.widthAnchor.constraint(
+                equalTo: scrollView.frameLayoutGuide.widthAnchor,
+                constant: -48
+            )
+        ])
+    }
+
+    // MARK: Course Picker
+
+    private func setupCoursePicker() {
+
+        coursePicker.delegate = self
+        coursePicker.dataSource = self
+
+        courseField.inputView = coursePicker
+
+        let toolbar = UIToolbar()
+        toolbar.sizeToFit()
+
+        let done = UIBarButtonItem(
+            title: "Done",
+            style: .done,
+            target: self,
+            action: #selector(selectCourse)
+        )
+
+        toolbar.setItems([done], animated: false)
+        courseField.inputAccessoryView = toolbar
+    }
+
+    @objc private func selectCourse() {
+        let index = coursePicker.selectedRow(inComponent: 0)
+        courseField.text = courses[index]
+        courseField.resignFirstResponder()
+    }
+
+    // MARK: R1: Validation
+
+    @objc private func submitForm() {
+
+        view.endEditing(true)
+
+        let name = nameField.text?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        let email = emailField.text?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        let course = courseField.text?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        var valid = true
+
+        if name.isEmpty {
+            showError(nameError, "Please enter your name.")
+            valid = false
+        } else {
+            hideError(nameError)
+        }
+
+        if email.isEmpty {
+            showError(emailError, "Please enter your email.")
+            valid = false
+        } else if !isValidEmail(email) {
+            showError(emailError, "Enter a valid email address.")
+            valid = false
+        } else {
+            hideError(emailError)
+        }
+
+        if course.isEmpty {
+            showError(courseError, "Please select a course.")
+            valid = false
+        } else {
+            hideError(courseError)
+        }
+
+        guard valid else {
+            return
+        }
+
+        // Navigate only when the form is valid.
+        let listVC = PostsListViewController()
+        navigationController?.pushViewController(
+            listVC,
+            animated: true
+        )
+    }
+
+    private func showError(_ label: UILabel, _ message: String) {
+        label.text = message
+        label.isHidden = false
+    }
+
+    private func hideError(_ label: UILabel) {
+        label.text = nil
+        label.isHidden = true
+    }
+
+    private func isValidEmail(_ email: String) -> Bool {
+        let pattern = #"^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"#
+        return email.range(
+            of: pattern,
+            options: .regularExpression
+        ) != nil
+    }
+
+    // MARK: Keyboard
+
+    private func setupKeyboard() {
+
+        let tap = UITapGestureRecognizer(
+            target: self,
+            action: #selector(dismissKeyboard)
+        )
+
+        tap.cancelsTouchesInView = false
+        view.addGestureRecognizer(tap)
+    }
+
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
+    }
+}
+
+// MARK: COURSE PICKER DELEGATE
+
+extension ProfileViewController:
+    UIPickerViewDelegate,
+    UIPickerViewDataSource {
+
+    func numberOfComponents(in pickerView: UIPickerView) -> Int {
+        return 1
+    }
+
+    func pickerView(
+        _ pickerView: UIPickerView,
+        numberOfRowsInComponent component: Int
+    ) -> Int {
+        return courses.count
+    }
+
+    func pickerView(
+        _ pickerView: UIPickerView,
+        titleForRow row: Int,
+        forComponent component: Int
+    ) -> String? {
+        return courses[row]
+    }
+
+    func pickerView(
+        _ pickerView: UIPickerView,
+        didSelectRow row: Int,
+        inComponent component: Int
+    ) {
+        courseField.text = courses[row]
+    }
+}
+
+// MARK: - R2 AND R3: POSTS LIST
+
+@MainActor
+class PostsListViewController: UIViewController,
+                               UITableViewDataSource,
+                               UITableViewDelegate {
+
+    private let tableView = UITableView()
+    private let activityIndicator = UIActivityIndicatorView(style: .large)
+    private let messageLabel = UILabel()
+    private let retryButton = UIButton(type: .system)
+
+    private let service = PostService()
+
+    private var posts: [Post] = []
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        view.backgroundColor = .systemBackground
+        title = "Posts"
+
+        setupUI()
+        setupConstraints()
+
+        fetchPosts()
+    }
+
+    // MARK: List UI
+
+    private func setupUI() {
+
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+        messageLabel.translatesAutoresizingMaskIntoConstraints = false
+        retryButton.translatesAutoresizingMaskIntoConstraints = false
+
+        tableView.dataSource = self
+        tableView.delegate = self
+
+        tableView.register(
+            UITableViewCell.self,
+            forCellReuseIdentifier: "PostCell"
+        )
+
+        messageLabel.textAlignment = .center
+        messageLabel.numberOfLines = 0
+        messageLabel.textColor = .secondaryLabel
+
+        retryButton.setTitle("Try Again", for: .normal)
+        retryButton.addTarget(
+            self,
+            action: #selector(retryFetch),
+            for: .touchUpInside
+        )
+
+        view.addSubview(tableView)
+        view.addSubview(activityIndicator)
+        view.addSubview(messageLabel)
+        view.addSubview(retryButton)
+
+        retryButton.isHidden = true
+    }
+
+    private func setupConstraints() {
+
+        NSLayoutConstraint.activate([
+
+            tableView.topAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.topAnchor
+            ),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            activityIndicator.centerXAnchor.constraint(
+                equalTo: view.centerXAnchor
+            ),
+            activityIndicator.centerYAnchor.constraint(
+                equalTo: view.centerYAnchor
+            ),
+
+            messageLabel.centerXAnchor.constraint(
+                equalTo: view.centerXAnchor
+            ),
+            messageLabel.centerYAnchor.constraint(
+                equalTo: view.centerYAnchor,
+                constant: -20
+            ),
+            messageLabel.leadingAnchor.constraint(
+                greaterThanOrEqualTo: view.leadingAnchor,
+                constant: 24
+            ),
+            messageLabel.trailingAnchor.constraint(
+                lessThanOrEqualTo: view.trailingAnchor,
+                constant: -24
+            ),
+
+            retryButton.topAnchor.constraint(
+                equalTo: messageLabel.bottomAnchor,
+                constant: 16
+            ),
+            retryButton.centerXAnchor.constraint(
+                equalTo: view.centerXAnchor
+            )
+        ])
+    }
+
+    // MARK: R3: Loading, Empty and Failure States
+
+    private func showLoading() {
+        activityIndicator.startAnimating()
+        tableView.isHidden = true
+        messageLabel.isHidden = true
+        retryButton.isHidden = true
+    }
+
+    private func showEmpty() {
+        activityIndicator.stopAnimating()
+        tableView.isHidden = true
+        messageLabel.isHidden = false
+        retryButton.isHidden = false
+        messageLabel.text = "No posts found."
+    }
+
+    private func showFailure(_ message: String) {
+        activityIndicator.stopAnimating()
+        tableView.isHidden = true
+        messageLabel.isHidden = false
+        retryButton.isHidden = false
+        messageLabel.text = "Unable to load posts.\n\(message)"
+    }
+
+    private func showPosts() {
+        activityIndicator.stopAnimating()
+        tableView.isHidden = false
+        messageLabel.isHidden = true
+        retryButton.isHidden = true
+        tableView.reloadData()
+    }
+
+    // MARK: Fetch Data
+
+    private func fetchPosts() {
+
+        showLoading()
+
+        Task {
+            do {
+                let result = try await service.fetchPosts()
+
+                posts = result
+
+                if posts.isEmpty {
+                    showEmpty()
+                } else {
+                    showPosts()
+                }
+
+            } catch {
+                showFailure(error.localizedDescription)
+            }
+        }
+    }
+
+    @objc private func retryFetch() {
+        fetchPosts()
+    }
+
+    // MARK: Table View
+
+    func tableView(
+        _ tableView: UITableView,
+        numberOfRowsInSection section: Int
+    ) -> Int {
+        return posts.count
+    }
+
+    func tableView(
+        _ tableView: UITableView,
+        cellForRowAt indexPath: IndexPath
+    ) -> UITableViewCell {
+
+        let cell = tableView.dequeueReusableCell(
+            withIdentifier: "PostCell",
+            for: indexPath
+        )
+
+        let post = posts[indexPath.row]
+
+        var configuration = cell.defaultContentConfiguration()
+        configuration.text = post.title
+        configuration.secondaryText = post.body
+        configuration.secondaryTextProperties.numberOfLines = 2
+
+        cell.contentConfiguration = configuration
+        cell.accessoryType = .disclosureIndicator
+
+        return cell
+    }
+
+    // MARK: R4: Navigation to Detail
+
+    func tableView(
+        _ tableView: UITableView,
+        didSelectRowAt indexPath: IndexPath
+    ) {
+
+        tableView.deselectRow(at: indexPath, animated: true)
+
+        let selectedPost = posts[indexPath.row]
+
+        let detailVC = PostDetailViewController(post: selectedPost)
+
+        navigationController?.pushViewController(
+            detailVC,
+            animated: true
+        )
+    }
+}
+
+// MARK: - R4: DETAIL SCREEN
+
+@MainActor
+class PostDetailViewController: UIViewController {
+
+    private let post: Post
+
+    private let titleLabel = UILabel()
+    private let bodyLabel = UILabel()
+    private let userLabel = UILabel()
+
+    init(post: Post) {
+        self.post = post
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        return nil
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        view.backgroundColor = .systemBackground
+        title = "Post Details"
+
+        setupUI()
+        setupConstraints()
+        displayPost()
+    }
+
+    private func setupUI() {
+
+        [titleLabel, bodyLabel, userLabel].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview($0)
+        }
+
+        titleLabel.font = .boldSystemFont(ofSize: 24)
+        titleLabel.numberOfLines = 0
+
+        bodyLabel.font = .systemFont(ofSize: 17)
+        bodyLabel.numberOfLines = 0
+
+        userLabel.font = .systemFont(ofSize: 14)
+        userLabel.textColor = .secondaryLabel
+    }
+
+    private func setupConstraints() {
+
+        NSLayoutConstraint.activate([
+
+            titleLabel.topAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.topAnchor,
+                constant: 30
+            ),
+            titleLabel.leadingAnchor.constraint(
+                equalTo: view.leadingAnchor,
+                constant: 24
+            ),
+            titleLabel.trailingAnchor.constraint(
+                equalTo: view.trailingAnchor,
+                constant: -24
+            ),
+
+            bodyLabel.topAnchor.constraint(
+                equalTo: titleLabel.bottomAnchor,
+                constant: 25
+            ),
+            bodyLabel.leadingAnchor.constraint(
+                equalTo: titleLabel.leadingAnchor
+            ),
+            bodyLabel.trailingAnchor.constraint(
+                equalTo: titleLabel.trailingAnchor
+            ),
+
+            userLabel.topAnchor.constraint(
+                equalTo: bodyLabel.bottomAnchor,
+                constant: 25
+            ),
+            userLabel.leadingAnchor.constraint(
+                equalTo: titleLabel.leadingAnchor
+            ),
+            userLabel.trailingAnchor.constraint(
+                equalTo: titleLabel.trailingAnchor
+            )
+        ])
+    }
+
+    private func displayPost() {
+        titleLabel.text = post.title
+        bodyLabel.text = post.body
+        userLabel.text = "Post ID: \(post.id) | User ID: \(post.userId)"
+    }
+}

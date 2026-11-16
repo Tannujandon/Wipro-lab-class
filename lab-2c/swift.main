@@ -1,0 +1,179 @@
+
+import Foundation
+
+// MARK: - R1: Protocol Displayable
+
+print("========== R1: PROTOCOLS ==========")
+
+// Define a protocol
+protocol Displayable {
+    var displayName: String { get }
+    func displayDetails()
+}
+
+// Student conforms to Displayable
+struct Student: Displayable {
+    var name: String
+    var marks: Int
+
+    var displayName: String {
+        return name
+    }
+
+    func displayDetails() {
+        print("Student Name: \(name)")
+        print("Student Marks: \(marks)")
+    }
+}
+
+// Course conforms to Displayable
+struct Course: Displayable {
+    var name: String
+    var duration: Int
+
+    var displayName: String {
+        return name
+    }
+
+    func displayDetails() {
+        print("Course Name: \(name)")
+        print("Duration: \(duration) months")
+    }
+}
+
+let student = Student(name: "Tannu", marks: 95)
+let course = Course(name: "Swift Programming", duration: 3)
+
+student.displayDetails()
+course.displayDetails()
+
+
+// MARK: - R2: Extension
+
+print("\n========== R2: EXTENSIONS ==========")
+
+// Add a computed property to String
+extension String {
+    var wordCount: Int {
+        return self.split(separator: " ").count
+    }
+
+    func reversedText() -> String {
+        return String(self.reversed())
+    }
+}
+
+let message = "Swift is easy to learn"
+
+print("Original Text: \(message)")
+print("Word Count: \(message.wordCount)")
+print("Reversed Text: \(message.reversedText())")
+
+
+// MARK: - R3: Generic Stack<T>
+
+print("\n========== R3: GENERIC STACK ==========")
+
+struct Stack<T> {
+
+    private var items: [T] = []
+
+    // Push an element
+    mutating func push(_ item: T) {
+        items.append(item)
+    }
+
+    // Pop the last element
+    mutating func pop() -> T? {
+        return items.popLast()
+    }
+
+    // View the top element
+    func peek() -> T? {
+        return items.last
+    }
+
+    // Check whether stack is empty
+    var isEmpty: Bool {
+        return items.isEmpty
+    }
+}
+
+// Integer Stack
+var numberStack = Stack<Int>()
+
+numberStack.push(10)
+numberStack.push(20)
+numberStack.push(30)
+
+print("Top Element:", numberStack.peek() ?? 0)
+print("Removed Element:", numberStack.pop() ?? 0)
+print("Top After Pop:", numberStack.peek() ?? 0)
+print("Is Stack Empty:", numberStack.isEmpty)
+
+// String Stack
+var nameStack = Stack<String>()
+
+nameStack.push("Tannu")
+nameStack.push("Rahul")
+
+print("Name Stack Top:", nameStack.peek() ?? "Empty")
+
+
+// MARK: - R4: Generic Function with Protocol Constraint
+
+print("\n========== R4: GENERIC CONSTRAINTS ==========")
+
+// Generic function accepts only Displayable types
+func displayItem<T: Displayable>(_ item: T) {
+    print("Displaying: \(item.displayName)")
+    item.displayDetails()
+}
+
+// Valid use: Student conforms to Displayable
+displayItem(student)
+
+// Valid use: Course conforms to Displayable
+displayItem(course)
+
+// Invalid use (compile-time error):
+// displayItem(100)
+// Int does not conform to Displayable.
+
+
+// MARK: - R5: Extension vs New Type
+
+print("\n========== R5: EXTENSION VS NEW TYPE ==========")
+
+// Extension can add computed properties and methods.
+extension Int {
+    var isEven: Bool {
+        return self % 2 == 0
+    }
+}
+
+let number = 20
+print("Is \(number) even?", number.isEven)
+
+// A new type can store its own independent state.
+struct StudentProfile {
+    var studentName: String
+    var age: Int
+    var department: String
+
+    func showProfile() {
+        print("Name: \(studentName)")
+        print("Age: \(age)")
+        print("Department: \(department)")
+    }
+}
+
+let profile = StudentProfile(
+    studentName: "Tannu",
+    age: 21,
+    department: "Computer Science"
+)
+
+profile.showProfile()
+
+print("\n========== PROGRAM COMPLETED ==========")

@@ -1,0 +1,359 @@
+
+import UIKit
+
+// MARK: - R1: MODEL
+
+struct Student {
+    let id: Int
+    let name: String
+    let course: String
+    let email: String
+    let description: String
+}
+
+// MARK: - APP DELEGATE
+
+@main
+class AppDelegate: UIResponder, UIApplicationDelegate {
+
+    var window: UIWindow?
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions:
+        [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
+
+        window = UIWindow(frame: UIScreen.main.bounds)
+
+        let listVC = StudentListViewController()
+
+        let navigationController = UINavigationController(
+            rootViewController: listVC
+        )
+
+        window?.rootViewController = navigationController
+        window?.makeKeyAndVisible()
+
+        return true
+    }
+}
+
+// MARK: - R1: LIST SCREEN
+
+class StudentListViewController: UIViewController,
+                                 UITableViewDataSource,
+                                 UITableViewDelegate {
+
+    private let tableView = UITableView()
+
+    // Sample student data
+    private let students: [Student] = [
+        Student(
+            id: 1,
+            name: "Tannu Jadon",
+            course: "Computer Science",
+            email: "tannu@example.com",
+            description: "Student interested in software development and programming."
+        ),
+
+        Student(
+            id: 2,
+            name: "Rahul Sharma",
+            course: "Information Technology",
+            email: "rahul@example.com",
+            description: "Student interested in web development and databases."
+        ),
+
+        Student(
+            id: 3,
+            name: "Priya Singh",
+            course: "Electronics Engineering",
+            email: "priya@example.com",
+            description: "Student interested in electronics and embedded systems."
+        ),
+
+        Student(
+            id: 4,
+            name: "Aman Verma",
+            course: "Mechanical Engineering",
+            email: "aman@example.com",
+            description: "Student interested in mechanical design and manufacturing."
+        )
+    ]
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        view.backgroundColor = .systemBackground
+        title = "Student List"
+
+        setupTableView()
+    }
+
+    // MARK: Table View Setup
+
+    private func setupTableView() {
+
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+
+        tableView.dataSource = self
+        tableView.delegate = self
+
+        tableView.register(
+            UITableViewCell.self,
+            forCellReuseIdentifier: "StudentCell"
+        )
+
+        view.addSubview(tableView)
+
+        NSLayoutConstraint.activate([
+
+            tableView.topAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.topAnchor
+            ),
+
+            tableView.leadingAnchor.constraint(
+                equalTo: view.leadingAnchor
+            ),
+
+            tableView.trailingAnchor.constraint(
+                equalTo: view.trailingAnchor
+            ),
+
+            tableView.bottomAnchor.constraint(
+                equalTo: view.bottomAnchor
+            )
+        ])
+    }
+
+    // MARK: Table View Data Source
+
+    func tableView(
+        _ tableView: UITableView,
+        numberOfRowsInSection section: Int
+    ) -> Int {
+        return students.count
+    }
+
+    func tableView(
+        _ tableView: UITableView,
+        cellForRowAt indexPath: IndexPath
+    ) -> UITableViewCell {
+
+        let cell = tableView.dequeueReusableCell(
+            withIdentifier: "StudentCell",
+            for: indexPath
+        )
+
+        let student = students[indexPath.row]
+
+        var content = cell.defaultContentConfiguration()
+
+        content.text = student.name
+        content.secondaryText = student.course
+
+        cell.contentConfiguration = content
+        cell.accessoryType = .disclosureIndicator
+
+        return cell
+    }
+
+    // MARK: - R2 and R3: PASS DATA AND NAVIGATE
+
+    func tableView(
+        _ tableView: UITableView,
+        didSelectRowAt indexPath: IndexPath
+    ) {
+
+        tableView.deselectRow(at: indexPath, animated: true)
+
+        // Get selected student object
+        let selectedStudent = students[indexPath.row]
+
+        // Pass object through initializer
+        let detailVC = StudentDetailViewController(
+            student: selectedStudent
+        )
+
+        // Push detail screen
+        navigationController?.pushViewController(
+            detailVC,
+            animated: true
+        )
+    }
+}
+
+// MARK: - R1: DETAIL SCREEN
+
+class StudentDetailViewController: UIViewController {
+
+    // MARK: Selected Model Object
+
+    private let student: Student
+
+    // MARK: UI Components
+
+    private let nameLabel = UILabel()
+    private let courseLabel = UILabel()
+    private let emailLabel = UILabel()
+    private let descriptionLabel = UILabel()
+
+    private let cardView = UIView()
+
+    // MARK: Dependency Injection
+
+    init(student: Student) {
+        self.student = student
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    // Safe initialization for storyboard decoding
+    required init?(coder: NSCoder) {
+        return nil
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        view.backgroundColor = .systemBackground
+        title = "Student Details"
+
+        setupUI()
+        setupConstraints()
+        displayStudentDetails()
+    }
+
+    // MARK: Setup UI
+
+    private func setupUI() {
+
+        cardView.backgroundColor = .secondarySystemBackground
+        cardView.layer.cornerRadius = 15
+
+        let labels = [
+            nameLabel,
+            courseLabel,
+            emailLabel,
+            descriptionLabel
+        ]
+
+        labels.forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            cardView.addSubview($0)
+        }
+
+        view.addSubview(cardView)
+
+        nameLabel.font = .boldSystemFont(ofSize: 26)
+        nameLabel.numberOfLines = 0
+
+        courseLabel.font = .systemFont(ofSize: 18)
+        courseLabel.textColor = .secondaryLabel
+
+        emailLabel.font = .systemFont(ofSize: 16)
+        emailLabel.textColor = .systemBlue
+
+        descriptionLabel.font = .systemFont(ofSize: 16)
+        descriptionLabel.numberOfLines = 0
+    }
+
+    // MARK: Auto Layout
+
+    private func setupConstraints() {
+
+        cardView.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+
+            cardView.topAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.topAnchor,
+                constant: 25
+            ),
+
+            cardView.leadingAnchor.constraint(
+                equalTo: view.leadingAnchor,
+                constant: 20
+            ),
+
+            cardView.trailingAnchor.constraint(
+                equalTo: view.trailingAnchor,
+                constant: -20
+            ),
+
+            // Name
+            nameLabel.topAnchor.constraint(
+                equalTo: cardView.topAnchor,
+                constant: 25
+            ),
+
+            nameLabel.leadingAnchor.constraint(
+                equalTo: cardView.leadingAnchor,
+                constant: 20
+            ),
+
+            nameLabel.trailingAnchor.constraint(
+                equalTo: cardView.trailingAnchor,
+                constant: -20
+            ),
+
+            // Course
+            courseLabel.topAnchor.constraint(
+                equalTo: nameLabel.bottomAnchor,
+                constant: 15
+            ),
+
+            courseLabel.leadingAnchor.constraint(
+                equalTo: nameLabel.leadingAnchor
+            ),
+
+            courseLabel.trailingAnchor.constraint(
+                equalTo: nameLabel.trailingAnchor
+            ),
+
+            // Email
+            emailLabel.topAnchor.constraint(
+                equalTo: courseLabel.bottomAnchor,
+                constant: 15
+            ),
+
+            emailLabel.leadingAnchor.constraint(
+                equalTo: nameLabel.leadingAnchor
+            ),
+
+            emailLabel.trailingAnchor.constraint(
+                equalTo: nameLabel.trailingAnchor
+            ),
+
+            // Description
+            descriptionLabel.topAnchor.constraint(
+                equalTo: emailLabel.bottomAnchor,
+                constant: 20
+            ),
+
+            descriptionLabel.leadingAnchor.constraint(
+                equalTo: nameLabel.leadingAnchor
+            ),
+
+            descriptionLabel.trailingAnchor.constraint(
+                equalTo: nameLabel.trailingAnchor
+            ),
+
+            descriptionLabel.bottomAnchor.constraint(
+                equalTo: cardView.bottomAnchor,
+                constant: -25
+            )
+        ])
+    }
+
+    // MARK: Display Selected Student
+
+    private func displayStudentDetails() {
+
+        nameLabel.text = student.name
+        courseLabel.text = "Course: \(student.course)"
+        emailLabel.text = "Email: \(student.email)"
+        descriptionLabel.text =
+            "About Student:\n\(student.description)"
+    }
+}

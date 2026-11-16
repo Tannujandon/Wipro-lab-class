@@ -1,0 +1,160 @@
+
+import Foundation
+
+// MARK: - R1: Sort Students Using a Closure
+
+print("========== R1: SORT USING CLOSURE ==========")
+
+struct Student {
+    let name: String
+    let marks: Int
+}
+
+let students = [
+    Student(name: "Rahul", marks: 85),
+    Student(name: "Tannu", marks: 95),
+    Student(name: "Aman", marks: 90),
+    Student(name: "Priya", marks: 85)
+]
+
+// Sorting using a closure
+let sortedStudents = students.sorted {
+    $0.marks > $1.marks
+}
+
+for student in sortedStudents {
+    print("\(student.name): \(student.marks)")
+}
+
+
+// MARK: - R2: Function with Completion Closure
+
+print("\n========== R2: COMPLETION CLOSURE ==========")
+
+func downloadData(completion: () -> Void) {
+    print("Download started...")
+
+    // Simulating an operation
+    print("Downloading data...")
+
+    print("Download completed!")
+
+    // Calling completion closure
+    completion()
+}
+
+downloadData {
+    print("Completion closure executed successfully.")
+}
+
+
+// MARK: - R3: Trailing Closure and Shorthand Arguments
+
+print("\n========== R3: TRAILING CLOSURE ==========")
+
+// Using trailing closure and shorthand argument names
+let numbers = [10, 20, 30, 40, 50]
+
+let filteredNumbers = numbers.filter {
+    $0 > 25
+}
+
+print("Using shorthand arguments:", filteredNumbers)
+
+// Same example using explicit argument names
+let explicitlyFilteredNumbers = numbers.filter {
+    number in
+    return number > 25
+}
+
+print("Using explicit argument names:", explicitlyFilteredNumbers)
+
+// Another example using trailing closure syntax
+func calculate(a: Int, b: Int, operation: (Int, Int) -> Int) -> Int {
+    return operation(a, b)
+}
+
+let result = calculate(a: 10, b: 5) {
+    firstNumber, secondNumber in
+    return firstNumber + secondNumber
+}
+
+print("Addition result:", result)
+
+
+// MARK: - R4: Counter Closure and Captured State
+
+print("\n========== R4: COUNTER CLOSURE ==========")
+
+func createCounter() -> () -> Int {
+    var count = 0
+
+    let counter = {
+        count += 1
+        return count
+    }
+
+    return counter
+}
+
+let counter = createCounter()
+
+print("Counter:", counter())
+print("Counter:", counter())
+print("Counter:", counter())
+
+// Another independent counter
+let secondCounter = createCounter()
+
+print("Second Counter:", secondCounter())
+
+
+// MARK: - R5: Avoid Retain Cycles Using Weak Self
+
+print("\n========== R5: AVOID RETAIN CYCLES ==========")
+
+class DataManager {
+
+    var name: String
+
+    var completionHandler: (() -> Void)?
+
+    init(name: String) {
+        self.name = name
+        print("\(name) initialized")
+    }
+
+    func performOperation() {
+
+        // Weak self prevents a strong reference cycle
+        completionHandler = { [weak self] in
+
+            guard let self = self else {
+                print("DataManager no longer exists")
+                return
+            }
+
+            print("Operation completed by \(self.name)")
+        }
+    }
+
+    deinit {
+        print("\(name) deallocated")
+    }
+}
+
+// Testing memory management
+
+var manager: DataManager? = DataManager(name: "Student Data Manager")
+
+manager?.performOperation()
+
+// Execute the stored closure
+manager?.completionHandler?()
+
+// Release the strong reference
+manager = nil
+
+print("Manager reference released")
+
+print("\n========== PROGRAM COMPLETED ==========")

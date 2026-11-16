@@ -1,0 +1,285 @@
+
+import SwiftUI
+
+// MARK: - EVENT REGISTRATION APP
+
+@main
+struct EventRegistrationApp: App {
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}
+
+// MARK: - MAIN VIEW
+
+struct ContentView: View {
+
+    // MARK: Form State
+
+    @State private var fullName = ""
+    @State private var email = ""
+    @State private var selectedEvent = "iOS Development Workshop"
+    @State private var wantsUpdates = false
+    @State private var acceptedTerms = false
+
+    // Validation and confirmation
+    @State private var showValidation = false
+    @State private var showSuccess = false
+
+    // Available events
+    private let events = [
+        "iOS Development Workshop",
+        "AI and Machine Learning",
+        "Web Development Bootcamp",
+        "UI/UX Design Seminar"
+    ]
+
+    // MARK: Validation
+
+    private var trimmedName: String {
+        fullName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var trimmedEmail: String {
+        email.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var isNameValid: Bool {
+        trimmedName.count >= 2
+    }
+
+    private var isEmailValid: Bool {
+
+        let emailPattern =
+            #"^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"#
+
+        return trimmedEmail.range(
+            of: emailPattern,
+            options: .regularExpression
+        ) != nil
+    }
+
+    private var isFormValid: Bool {
+        isNameValid &&
+        isEmailValid &&
+        acceptedTerms
+    }
+
+    // MARK: View
+
+    var body: some View {
+
+        NavigationStack {
+
+            Form {
+
+                // MARK: Section 1 - Personal Details
+
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+
+                        Text("Full Name")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+
+                        TextField("Enter your full name", text: $fullName)
+                            .textContentType(.name)
+                            .textInputAutocapitalization(.words)
+                            .autocorrectionDisabled()
+                            .accessibilityLabel("Full name")
+
+                        if showValidation && !isNameValid {
+                            ValidationMessage(
+                                message: "Name must contain at least 2 characters."
+                            )
+                        }
+                    }
+                    .padding(.vertical, 5)
+
+                    VStack(alignment: .leading, spacing: 8) {
+
+                        Text("Email Address")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+
+                        TextField("Enter your email", text: $email)
+                            .keyboardType(.emailAddress)
+                            .textContentType(.emailAddress)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .accessibilityLabel("Email address")
+
+                        if showValidation && !isEmailValid {
+                            ValidationMessage(
+                                message: "Please enter a valid email address."
+                            )
+                        }
+                    }
+                    .padding(.vertical, 5)
+                } header: {
+                    Text("Personal Information")
+                } footer: {
+                    Text("Enter your name and a valid email address.")
+                }
+
+                // MARK: Section 2 - Event Selection
+
+                Section {
+
+                    VStack(alignment: .leading, spacing: 8) {
+
+                        Text("Choose an Event")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+
+                        Picker("Select Event", selection: $selectedEvent) {
+
+                            ForEach(events, id: \.self) { event in
+                                Text(event).tag(event)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .accessibilityLabel("Choose an event")
+                    }
+                    .padding(.vertical, 5)
+
+                } header: {
+                    Text("Event Details")
+                } footer: {
+                    Text("Choose the event you want to attend.")
+                }
+
+                // MARK: Section 3 - Preferences
+
+                Section {
+
+                    Toggle(
+                        "Receive event updates",
+                        isOn: $wantsUpdates
+                    )
+
+                    Toggle(
+                        "I accept the terms and conditions",
+                        isOn: $acceptedTerms
+                    )
+
+                    if showValidation && !acceptedTerms {
+                        ValidationMessage(
+                            message: "You must accept the terms to register."
+                        )
+                    }
+
+                } header: {
+                    Text("Preferences and Consent")
+                } footer: {
+                    Text("You can choose whether to receive updates. Accepting the terms is required.")
+                }
+
+                // MARK: Section 4 - Submit
+
+                Section {
+
+                    Button {
+                        submitRegistration()
+                    } label: {
+
+                        HStack {
+                            Spacer()
+
+                            Text("Submit Registration")
+                                .fontWeight(.bold)
+
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    .disabled(!isFormValid)
+                    .listRowBackground(
+                        isFormValid
+                            ? Color.blue
+                            : Color.gray.opacity(0.25)
+                    )
+                    .foregroundStyle(
+                        isFormValid
+                            ? Color.white
+                            : Color.secondary
+                    )
+
+                    if !isFormValid {
+                        Text("Complete all required fields and accept the terms to enable registration.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                } header: {
+                    Text("Registration")
+                }
+            }
+            .navigationTitle("Event Registration")
+            .navigationBarTitleDisplayMode(.inline)
+            .scrollDismissesKeyboard(.interactively)
+
+            // Success confirmation
+            .alert(
+                "Registration Successful!",
+                isPresented: $showSuccess
+            ) {
+                Button("Done", role: .cancel) { }
+            } message: {
+                Text(
+                    "Thank you, \(trimmedName)! You have registered for \(selectedEvent)."
+                )
+            }
+        }
+    }
+
+    // MARK: Submit Action
+
+    private func submitRegistration() {
+
+        showValidation = true
+
+        guard isFormValid else {
+            return
+        }
+
+        showSuccess = true
+
+        print("----- REGISTRATION DETAILS -----")
+        print("Name: \(trimmedName)")
+        print("Email: \(trimmedEmail)")
+        print("Event: \(selectedEvent)")
+        print("Receive Updates: \(wantsUpdates)")
+        print("Terms Accepted: \(acceptedTerms)")
+    }
+}
+
+// MARK: - REUSABLE VALIDATION MESSAGE
+
+struct ValidationMessage: View {
+
+    let message: String
+
+    var body: some View {
+
+        HStack(alignment: .top, spacing: 6) {
+
+            Image(systemName: "exclamationmark.circle.fill")
+
+            Text(message)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.caption)
+        .foregroundStyle(.red)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - PREVIEW
+
+#Preview {
+    ContentView()
+}

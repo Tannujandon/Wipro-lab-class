@@ -1,0 +1,250 @@
+
+import SwiftUI
+
+// MARK: - MODEL
+
+struct Course: Identifiable, Hashable {
+    let id: Int
+    let title: String
+    let category: String
+    let instructor: String
+    let duration: String
+    let description: String
+
+    static let samples: [Course] = [
+        Course(
+            id: 1,
+            title: "Swift Programming",
+            category: "iOS Development",
+            instructor: "Alex Morgan",
+            duration: "6 Weeks",
+            description: "Learn Swift, variables, functions, structures, classes and build your first iOS application."
+        ),
+        Course(
+            id: 2,
+            title: "Python for Beginners",
+            category: "Programming",
+            instructor: "Sarah Lee",
+            duration: "5 Weeks",
+            description: "Learn Python fundamentals, loops, conditions, functions and practical programming."
+        ),
+        Course(
+            id: 3,
+            title: "UI/UX Design",
+            category: "Design",
+            instructor: "David Smith",
+            duration: "4 Weeks",
+            description: "Explore interface design, typography, colors, layouts and user experience principles."
+        ),
+        Course(
+            id: 4,
+            title: "Machine Learning",
+            category: "Artificial Intelligence",
+            instructor: "Emily Brown",
+            duration: "8 Weeks",
+            description: "Understand datasets, model training, supervised learning and practical AI applications."
+        )
+    ]
+}
+
+// MARK: - R1: APP ENTRY POINT
+
+@main
+struct CourseExplorerApp: App {
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}
+
+// MARK: - R2: HOME SCREEN
+
+struct ContentView: View {
+
+    @State private var navigationPath = NavigationPath()
+
+    private let courses = Course.samples
+
+    private var featuredCourse: Course {
+        Course.samples[0]
+    }
+
+    var body: some View {
+
+        NavigationStack(path: $navigationPath) {
+
+            List(courses) { course in
+
+                NavigationLink(value: course) {
+                    CourseRowView(course: course)
+                }
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+            }
+            .listStyle(.plain)
+            .navigationTitle("Course Explorer")
+            .navigationBarTitleDisplayMode(.large)
+
+            // R4: Toolbar action
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+
+                    Button {
+                        navigationPath.append(featuredCourse)
+                    } label: {
+                        Label("Featured", systemImage: "star.fill")
+                    }
+                    .accessibilityLabel("Open featured course")
+                }
+            }
+
+            // R2 and R3: Destination and model passing
+            .navigationDestination(for: Course.self) { selectedCourse in
+                CourseDetailView(course: selectedCourse)
+            }
+        }
+    }
+}
+
+// MARK: - REUSABLE COURSE ROW
+
+struct CourseRowView: View {
+
+    let course: Course
+
+    var body: some View {
+
+        HStack(spacing: 14) {
+
+            Image(systemName: "book.fill")
+                .font(.system(size: 28))
+                .foregroundStyle(.blue)
+                .frame(width: 55, height: 55)
+                .background(Color.blue.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            VStack(alignment: .leading, spacing: 6) {
+
+                Text(course.title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+
+                Text(course.category)
+                    .font(.subheadline)
+                    .foregroundStyle(.blue)
+
+                Text("Instructor: \(course.instructor)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(12)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+// MARK: - R3: DETAIL SCREEN
+
+struct CourseDetailView: View {
+
+    let course: Course
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+
+        ScrollView {
+
+            VStack(alignment: .leading, spacing: 20) {
+
+                Image(systemName: "graduationcap.fill")
+                    .font(.system(size: 65))
+                    .foregroundStyle(.blue)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 35)
+                    .background(Color.blue.opacity(0.10))
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+
+                Text(course.category.uppercased())
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.blue)
+
+                Text(course.title)
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+
+                Divider()
+
+                Label(
+                    course.instructor,
+                    systemImage: "person.fill"
+                )
+
+                Label(
+                    course.duration,
+                    systemImage: "clock.fill"
+                )
+
+                Text("About this course")
+                    .font(.title2)
+                    .fontWeight(.bold)
+
+                Text(course.description)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .lineSpacing(5)
+
+                // Demonstrates programmatic back navigation.
+                Button {
+                    dismiss()
+                } label: {
+                    Label("Back to Courses", systemImage: "arrow.left")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .padding(.top, 15)
+            }
+            .padding()
+        }
+        .navigationTitle("Course Details")
+        .navigationBarTitleDisplayMode(.inline)
+
+        // R4: Detail screen toolbar action
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                ShareLink(
+                    item: "\(course.title) - \(course.description)"
+                ) {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .accessibilityLabel("Share course")
+            }
+        }
+    }
+}
+
+// MARK: - PREVIEWS
+
+#Preview("Course Explorer") {
+    ContentView()
+}
+
+#Preview("Course Detail") {
+    NavigationStack {
+        CourseDetailView(course: Course.samples[0])
+    }
+}

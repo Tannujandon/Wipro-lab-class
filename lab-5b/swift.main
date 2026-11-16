@@ -1,0 +1,230 @@
+
+import SwiftUI
+import Combine
+
+// MARK: - R1: Course Model
+
+struct Course: Identifiable {
+    let id = UUID()
+    let name: String
+    let duration: String
+}
+
+// MARK: - Fetch Scenarios
+
+enum FetchScenario {
+    case normal
+    case empty
+    case failure
+}
+
+// MARK: - Errors
+
+enum CourseFetchError: Error, LocalizedError {
+    case serverError
+
+    var errorDescription: String? {
+        return "Unable to fetch courses. Please try again."
+    }
+}
+
+// MARK: - R1: Async Service
+
+class CourseService {
+
+    func fetchCourses(scenario: FetchScenario) async throws -> [Course] {
+
+        print("Fetching courses started...")
+        print("Is Main Thread: \(Thread.isMainThread)")
+
+        // Simulate a slow network request (3 seconds).
+        try await Task.sleep(nanoseconds: 3_000_000_000)
+
+        // Check whether the operation was cancelled.
+        try Task.checkCancellation()
+
+        switch scenario {
+
+        case .normal:
+            return [
+                Course(name: "Swift Programming", duration: "4 Weeks"),
+                Course(name: "iOS Development", duration: "6 Weeks"),
+                Course(name: "Java Programming", duration: "5 Weeks")
+            ]
+
+        case .empty:
+            return []
+
+        case .failure:
+            throw CourseFetchError.serverError
+        }
+    }
+}
+
+// MARK: - R3: UI States
+
+enum CourseViewState {
+    case idle
+    case loading
+    case success([Course])
+    case empty
+    case failure(String)
+    case cancelled
+}
+
+// MARK: - R2, R3 and R4: ViewModel
+
+@MainActor
+class CourseViewModel: ObservableObject {
+
+    @Published var state: CourseViewState = .idle
+
+    private let service = CourseService()
+    private var fetchTask: Task<Void, Never>?
+    private var currentRequestID = UUID()
+
+    // R2: Create a Task to execute the async function.
+    func loadCourses(scenario: FetchScenario = .normal) {
+
+        // Cancel any previous request.
+        fetchTask?.cancel()
+
+        let requestID = UUID()
+        currentRequestID = requestID
+
+        state = .loading
+
+        fetchTask = Task {
+            do {
+                let courses = try await service.fetchCourses(
+                    scenario: scenario
+                )
+
+                try Task.checkCancellation()
+
+                // Ignore results from an older request.
+                guard currentRequestID == requestID else { return }
+
+                if courses.isEmpty {
+                    state = .empty
+                } else {
+                    state = .success(courses)
+                }
+
+                print("Courses fetched successfully.")
+
+            } catch is CancellationError {
+
+                print("Fetching cancelled.")
+
+            } catch {
+
+                guard currentRequestID == requestID else { return }
+
+                state = .failure(error.localizedDescription)
+            }
+        }
+    }
+
+    // R4: Cancel the running task.
+    func cancelFetch() {
+
+        currentRequestID = UUID()
+        fetchTask?.cancel()
+        fetchTask = nil
+
+        state = .cancelled
+        print("Cancel button pressed.")
+    }
+}
+
+// MARK: - R2 and R3: SwiftUI View
+
+struct ContentView: View {
+
+    @StateObject private var viewModel = CourseViewModel()
+
+    var body: some View {
+
+        NavigationStack {
+
+            VStack(spacing: 20) {
+
+                Text("Course Fetching App")
+                    .font(.largeTitle)
+                    .bold()
+
+                // Display different UI based on state.
+                Group {
+
+                    switch viewModel.state {
+
+                    case .idle:
+                        Text("Press Fetch to load courses.")
+
+                    case .loading:
+                        ProgressView("Fetching courses...")
+                            .progressViewStyle(.circular)
+
+                    case .success(let courses):
+                        List(courses) { course in
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(course.name)
+                                    .font(.headline)
+
+                                Text(course.duration)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .listStyle(.plain)
+
+                    case .empty:
+                        ContentUnavailableView(
+                            "No Courses Found",
+                            systemImage: "book",
+                            description: Text("No courses are available.")
+                        )
+
+                    case .failure(let message):
+                        ContentUnavailableView(
+                            "Something Went Wrong",
+                            systemImage: "exclamationmark.triangle",
+                            description: Text(message)
+                        )
+
+                    case .cancelled:
+                        Text("Course fetching was cancelled.")
+                            .foregroundStyle(.orange)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                // Fetch buttons
+                Button("Fetch Courses") {
+                    viewModel.loadCourses(scenario: .normal)
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button("Fetch Empty Result") {
+                    viewModel.loadCourses(scenario: .empty)
+                }
+                .buttonStyle(.bordered)
+
+                Button("Simulate Failure") {
+                    viewModel.loadCourses(scenario: .failure)
+                }
+                .buttonStyle(.bordered)
+
+                // R4: Cancel button
+                Button("Cancel Fetch") {
+                    viewModel.cancelFetch()
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+            }
+            .padding()
+            .navigationTitle("Async/Await Demo")
+        }
+    }
+}

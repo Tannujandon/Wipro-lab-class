@@ -1,0 +1,367 @@
+
+import SwiftUI
+
+// MARK: - COURSE MODEL
+
+struct Course: Identifiable, Hashable {
+    let id: Int
+    let title: String
+    let category: String
+    let instructor: String
+    let duration: String
+    let description: String
+    let icon: String
+
+    static let samples: [Course] = [
+        Course(
+            id: 1,
+            title: "Swift Programming",
+            category: "iOS Development",
+            instructor: "Alex Morgan",
+            duration: "6 Weeks",
+            description: "Learn Swift fundamentals, variables, functions, structures, and object-oriented programming. Build a strong foundation for developing iOS applications.",
+            icon: "swift"
+        ),
+        Course(
+            id: 2,
+            title: "UI Design Fundamentals",
+            category: "Design",
+            instructor: "Sarah Lee",
+            duration: "4 Weeks",
+            description: "Understand user interface design, layouts, colors, typography, and the principles behind creating attractive and accessible applications.",
+            icon: "paintpalette.fill"
+        ),
+        Course(
+            id: 3,
+            title: "Python for Beginners",
+            category: "Programming",
+            instructor: "David Smith",
+            duration: "5 Weeks",
+            description: "Start programming with Python. Explore data types, loops, conditions, functions, and practical programming exercises.",
+            icon: "chevron.left.forwardslash.chevron.right"
+        ),
+        Course(
+            id: 4,
+            title: "Machine Learning Basics",
+            category: "Artificial Intelligence",
+            instructor: "Emily Brown",
+            duration: "8 Weeks",
+            description: "Explore machine learning concepts, datasets, model training, supervised learning, and real-world AI applications.",
+            icon: "brain.head.profile"
+        ),
+        Course(
+            id: 5,
+            title: "Web Development",
+            category: "Programming",
+            instructor: "John Wilson",
+            duration: "7 Weeks",
+            description: "Learn the foundations of web development using HTML, CSS, JavaScript, and responsive design techniques.",
+            icon: "globe"
+        )
+    ]
+}
+
+// MARK: - MAIN VIEW
+
+struct ContentView: View {
+
+    // Pass an empty array to test the empty state.
+    let courses: [Course]
+
+    @State private var selectedCategory = "All"
+
+    private var categories: [String] {
+        ["All"] + Array(Set(courses.map { $0.category })).sorted()
+    }
+
+    private var filteredCourses: [Course] {
+        if selectedCategory == "All" {
+            return courses
+        }
+
+        return courses.filter {
+            $0.category == selectedCategory
+        }
+    }
+
+    var body: some View {
+
+        NavigationStack {
+
+            ZStack {
+                Color(.systemGroupedBackground)
+                    .ignoresSafeArea()
+
+                VStack(alignment: .leading, spacing: 16) {
+
+                    // App title
+                    HeaderView()
+
+                    // Category filters
+                    CategoryFilterView(
+                        categories: categories,
+                        selectedCategory: $selectedCategory
+                    )
+
+                    // Course list
+                    if filteredCourses.isEmpty {
+                        EmptyCoursesView()
+                    } else {
+                        List {
+                            ForEach(filteredCourses) { course in
+
+                                NavigationLink(value: course) {
+                                    CourseCardView(course: course)
+                                }
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(
+                                    EdgeInsets(
+                                        top: 6,
+                                        leading: 16,
+                                        bottom: 6,
+                                        trailing: 16
+                                    )
+                                )
+                            }
+                        }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
+                    }
+                }
+            }
+            .navigationDestination(for: Course.self) { course in
+                CourseDetailView(course: course)
+            }
+        }
+    }
+}
+
+// MARK: - HEADER VIEW
+
+struct HeaderView: View {
+
+    var body: some View {
+
+        VStack(alignment: .leading, spacing: 8) {
+
+            Text("Course Explorer")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+
+            Text("Discover courses and start learning.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal)
+        .padding(.top, 12)
+    }
+}
+
+// MARK: - CATEGORY FILTER VIEW
+
+struct CategoryFilterView: View {
+
+    let categories: [String]
+
+    @Binding var selectedCategory: String
+
+    var body: some View {
+
+        ScrollView(.horizontal, showsIndicators: false) {
+
+            HStack(spacing: 10) {
+
+                ForEach(categories, id: \.self) { category in
+
+                    Button {
+                        selectedCategory = category
+                    } label: {
+
+                        Text(category)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(
+                                selectedCategory == category
+                                ? Color.blue
+                                : Color(.secondarySystemBackground)
+                            )
+                            .foregroundStyle(
+                                selectedCategory == category
+                                ? Color.white
+                                : Color.primary
+                            )
+                            .clipShape(Capsule())
+                    }
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+}
+
+// MARK: - COURSE CARD VIEW
+
+struct CourseCardView: View {
+
+    let course: Course
+
+    var body: some View {
+
+        HStack(spacing: 15) {
+
+            // Course icon
+            ZStack {
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color.blue.opacity(0.12))
+                    .frame(width: 65, height: 65)
+
+                Image(systemName: course.icon)
+                    .font(.system(size: 27))
+                    .foregroundStyle(.blue)
+            }
+
+            // Course information
+            VStack(alignment: .leading, spacing: 7) {
+
+                Text(course.title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+
+                Text(course.category)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.blue)
+
+                Text("By \(course.instructor)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Label(course.duration, systemImage: "clock")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
+
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
+        .contentShape(RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+// MARK: - COURSE DETAIL SCREEN
+
+struct CourseDetailView: View {
+
+    let course: Course
+
+    var body: some View {
+
+        ScrollView {
+
+            VStack(alignment: .leading, spacing: 22) {
+
+                // Hero section
+                ZStack {
+
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(Color.blue.gradient)
+                        .frame(height: 190)
+
+                    Image(systemName: course.icon)
+                        .font(.system(size: 75))
+                        .foregroundStyle(.white)
+                }
+
+                // Course title and category
+                VStack(alignment: .leading, spacing: 10) {
+
+                    Text(course.category.uppercased())
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.blue)
+
+                    Text(course.title)
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+
+                    Text("Instructor: \(course.instructor)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Divider()
+
+                // Course information
+                VStack(alignment: .leading, spacing: 12) {
+
+                    Label(
+                        course.duration,
+                        systemImage: "clock"
+                    )
+                    .font(.headline)
+
+                    Text("About this course")
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    Text(course.description)
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .lineSpacing(5)
+                }
+
+                Spacer(minLength: 20)
+            }
+            .padding()
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle("Course Details")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - R5: EMPTY STATE
+
+struct EmptyCoursesView: View {
+
+    var body: some View {
+
+        VStack(spacing: 16) {
+
+            Image(systemName: "book.closed")
+                .font(.system(size: 55))
+                .foregroundStyle(.secondary)
+
+            Text("No Courses Available")
+                .font(.title2)
+                .fontWeight(.bold)
+
+            Text("There are currently no courses in this category. Try selecting another category.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(30)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - PREVIEWS
+
+#Preview("Course Explorer") {
+    ContentView(courses: Course.samples)
+}
+
+#Preview("Empty Courses") {
+    ContentView(courses: [])
+}

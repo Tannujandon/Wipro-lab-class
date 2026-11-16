@@ -1,0 +1,266 @@
+
+import Foundation
+
+// MARK: - R1: Custom Validation Error
+
+enum ValidationError: Error {
+    case emptyName
+    case invalidMark
+    case invalidID
+}
+
+
+// MARK: - Student Model
+
+struct Student {
+    let id: Int
+    let name: String
+    let marks: Int
+}
+
+
+// MARK: - R2: Throwing Student Registration Function
+
+var registeredStudents: [Student] = []
+
+func registerStudent(
+    id: Int,
+    name: String,
+    marks: Int
+) throws -> Student {
+
+    // Validate student name
+    let trimmedName = name.trimmingCharacters(
+        in: .whitespacesAndNewlines
+    )
+
+    guard !trimmedName.isEmpty else {
+        throw ValidationError.emptyName
+    }
+
+    // Validate student marks
+    guard marks >= 0 && marks <= 100 else {
+        throw ValidationError.invalidMark
+    }
+
+    // Validate student ID
+    guard id > 0 else {
+        throw ValidationError.invalidID
+    }
+
+    let student = Student(
+        id: id,
+        name: trimmedName,
+        marks: marks
+    )
+
+    registeredStudents.append(student)
+
+    return student
+}
+
+
+// MARK: - R3: Handle Errors Using do-catch
+
+print("========== R1, R2, R3: STUDENT REGISTRATION ==========")
+
+func displayRegistration(
+    id: Int,
+    name: String,
+    marks: Int
+) {
+    do {
+        let student = try registerStudent(
+            id: id,
+            name: name,
+            marks: marks
+        )
+
+        print("Registration successful!")
+        print("ID: \(student.id)")
+        print("Name: \(student.name)")
+        print("Marks: \(student.marks)")
+
+    } catch ValidationError.emptyName {
+        print("Error: Student name cannot be empty.")
+
+    } catch ValidationError.invalidMark {
+        print("Error: Marks must be between 0 and 100.")
+
+    } catch ValidationError.invalidID {
+        print("Error: Student ID must be greater than zero.")
+
+    } catch {
+        print("Unexpected error: \(error)")
+    }
+}
+
+// Valid registration
+displayRegistration(
+    id: 101,
+    name: "Tannu",
+    marks: 95
+)
+
+// Invalid name
+displayRegistration(
+    id: 102,
+    name: "   ",
+    marks: 80
+)
+
+// Invalid marks
+displayRegistration(
+    id: 103,
+    name: "Rahul",
+    marks: 150
+)
+
+// Invalid ID
+displayRegistration(
+    id: -1,
+    name: "Priya",
+    marks: 85
+)
+
+
+// MARK: - R4: Throws vs Optional vs Result
+
+print("\n========== R4: ERROR HANDLING COMPARISON ==========")
+
+// Example 1: Using Optional
+// Returns nil if registration data is invalid.
+
+func registerWithOptional(
+    name: String,
+    marks: Int
+) -> Student? {
+
+    guard !name.trimmingCharacters(
+        in: .whitespacesAndNewlines
+    ).isEmpty else {
+        return nil
+    }
+
+    guard marks >= 0 && marks <= 100 else {
+        return nil
+    }
+
+    return Student(
+        id: 201,
+        name: name,
+        marks: marks
+    )
+}
+
+if let student = registerWithOptional(
+    name: "Aman",
+    marks: 90
+) {
+    print("Optional: Registered \(student.name)")
+} else {
+    print("Optional: Registration failed")
+}
+
+
+// Example 2: Using Result
+
+func registerWithResult(
+    name: String,
+    marks: Int
+) -> Result<Student, ValidationError> {
+
+    guard !name.trimmingCharacters(
+        in: .whitespacesAndNewlines
+    ).isEmpty else {
+        return .failure(.emptyName)
+    }
+
+    guard marks >= 0 && marks <= 100 else {
+        return .failure(.invalidMark)
+    }
+
+    let student = Student(
+        id: 301,
+        name: name,
+        marks: marks
+    )
+
+    return .success(student)
+}
+
+let result = registerWithResult(
+    name: "Priya",
+    marks: 88
+)
+
+switch result {
+case .success(let student):
+    print("Result: Registered \(student.name)")
+
+case .failure(let error):
+    switch error {
+    case .emptyName:
+        print("Result: Name cannot be empty.")
+
+    case .invalidMark:
+        print("Result: Invalid marks.")
+
+    case .invalidID:
+        print("Result: Invalid student ID.")
+    }
+}
+
+
+// Example 3: Using throws
+
+do {
+    let student = try registerStudent(
+        id: 401,
+        name: "Rahul",
+        marks: 92
+    )
+
+    print("Throws: Registered \(student.name)")
+
+} catch {
+    print("Throws: Registration failed: \(error)")
+}
+
+
+// MARK: - R5: Safe Handling of Invalid Input
+
+print("\n========== R5: SAFE INPUT HANDLING ==========")
+
+func safeRegistration() {
+
+    let name = ""
+    let marks = 120
+    let id = 0
+
+    do {
+        let student = try registerStudent(
+            id: id,
+            name: name,
+            marks: marks
+        )
+
+        print("Student registered: \(student.name)")
+
+    } catch ValidationError.emptyName {
+        print("Safe handling: Please enter a student name.")
+
+    } catch ValidationError.invalidMark {
+        print("Safe handling: Enter marks between 0 and 100.")
+
+    } catch ValidationError.invalidID {
+        print("Safe handling: Enter a valid positive ID.")
+
+    } catch {
+        print("Safe handling: Something went wrong.")
+    }
+}
+
+safeRegistration()
+
+print("\n========== PROGRAM COMPLETED ==========")

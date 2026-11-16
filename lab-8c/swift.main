@@ -1,0 +1,465 @@
+
+import SwiftUI
+
+// MARK: - COURSE MODEL
+
+struct Course: Identifiable, Hashable {
+    let id: Int
+    let title: String
+    let category: String
+    let instructor: String
+    let duration: String
+    let description: String
+    let icon: String
+
+    static let samples: [Course] = [
+        Course(
+            id: 1,
+            title: "Swift Programming",
+            category: "iOS Development",
+            instructor: "Alex Morgan",
+            duration: "6 Weeks",
+            description: "Learn Swift fundamentals, variables, functions, structures, classes and build your first iOS application.",
+            icon: "swift"
+        ),
+        Course(
+            id: 2,
+            title: "Python for Beginners",
+            category: "Programming",
+            instructor: "Sarah Lee",
+            duration: "5 Weeks",
+            description: "Learn Python fundamentals, loops, conditions, functions and practical programming.",
+            icon: "chevron.left.forwardslash.chevron.right"
+        ),
+        Course(
+            id: 3,
+            title: "UI/UX Design",
+            category: "Design",
+            instructor: "David Smith",
+            duration: "4 Weeks",
+            description: "Explore interface design, typography, colors, layouts and user experience principles.",
+            icon: "paintpalette.fill"
+        ),
+        Course(
+            id: 4,
+            title: "Machine Learning",
+            category: "Artificial Intelligence",
+            instructor: "Emily Brown",
+            duration: "8 Weeks",
+            description: "Understand datasets, model training, supervised learning and practical AI applications.",
+            icon: "brain.head.profile"
+        ),
+        Course(
+            id: 5,
+            title: "Web Development",
+            category: "Programming",
+            instructor: "John Wilson",
+            duration: "7 Weeks",
+            description: "Learn HTML, CSS, JavaScript and responsive web design.",
+            icon: "globe"
+        )
+    ]
+}
+
+// MARK: - R2: SHARED OBSERVABLE MODEL
+
+@MainActor
+class CourseStore: ObservableObject {
+
+    // Shared course data
+    @Published var courses: [Course] = Course.samples
+
+    // IDs of courses marked as favourites
+    @Published private(set) var favouriteIDs: Set<Int> = []
+
+    // Check whether a course is a favourite
+    func isFavourite(_ course: Course) -> Bool {
+        favouriteIDs.contains(course.id)
+    }
+
+    // Add or remove a favourite
+    func setFavourite(_ isFavourite: Bool, for course: Course) {
+
+        if isFavourite {
+            favouriteIDs.insert(course.id)
+        } else {
+            favouriteIDs.remove(course.id)
+        }
+    }
+
+    // Toggle favourite status
+    func toggleFavourite(for course: Course) {
+
+        if isFavourite(course) {
+            favouriteIDs.remove(course.id)
+        } else {
+            favouriteIDs.insert(course.id)
+        }
+    }
+}
+
+// MARK: - APP ENTRY POINT
+
+@main
+struct CourseExplorerApp: App {
+
+    // Create one shared store for the application
+    @StateObject private var courseStore = CourseStore()
+
+    var body: some Scene {
+
+        WindowGroup {
+            ContentView()
+                .environmentObject(courseStore)
+        }
+    }
+}
+
+// MARK: - R1: HOME SCREEN
+
+struct ContentView: View {
+
+    // Receive the shared store
+    @EnvironmentObject var courseStore: CourseStore
+
+    // Local state: search belongs to this screen
+    @State private var searchText = ""
+
+    // Local state: switch between all and favourite courses
+    @State private var showFavouritesOnly = false
+
+    // Filter courses based on search and favourite selection
+    private var filteredCourses: [Course] {
+
+        courseStore.courses.filter { course in
+
+            let matchesSearch =
+                searchText.isEmpty ||
+                course.title.localizedCaseInsensitiveContains(searchText) ||
+                course.category.localizedCaseInsensitiveContains(searchText)
+
+            let matchesFavourite =
+                !showFavouritesOnly ||
+                courseStore.isFavourite(course)
+
+            return matchesSearch && matchesFavourite
+        }
+    }
+
+    var body: some View {
+
+        NavigationStack {
+
+            VStack(spacing: 12) {
+
+                // Search field
+                SearchBar(searchText: $searchText)
+
+                // Favourite filter
+                Toggle(
+                    "Show favourites only",
+                    isOn: $showFavouritesOnly
+                )
+                .padding(.horizontal)
+
+                // Course list
+                if filteredCourses.isEmpty {
+
+                    EmptyCoursesView(
+                        message: showFavouritesOnly
+                            ? "You have not added any favourites yet."
+                            : "No courses match your search."
+                    )
+
+                } else {
+
+                    List {
+
+                        ForEach(filteredCourses) { course in
+
+                            NavigationLink {
+                                CourseDetailView(course: course)
+                            } label: {
+
+                                CourseRowView(course: course)
+                            }
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                        }
+                    }
+                    .listStyle(.plain)
+                }
+            }
+            .navigationTitle("Course Explorer")
+            .toolbar {
+
+                ToolbarItem(placement: .topBarTrailing) {
+
+                    Text("\(courseStore.favouriteIDs.count) ♥")
+                        .foregroundStyle(.red)
+                        .accessibilityLabel(
+                            "\(courseStore.favouriteIDs.count) favourite courses"
+                        )
+                }
+            }
+        }
+    }
+}
+
+// MARK: - SEARCH BAR
+
+struct SearchBar: View {
+
+    // R3: Binding lets the parent own and update search state
+    @Binding var searchText: String
+
+    var body: some View {
+
+        HStack {
+
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+
+            TextField("Search courses...", text: $searchText)
+                .textInputAutocapitalization(.never)
+
+            if !searchText.isEmpty {
+
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(12)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal)
+    }
+}
+
+// MARK: - COURSE ROW
+
+struct CourseRowView: View {
+
+    let course: Course
+
+    @EnvironmentObject var courseStore: CourseStore
+
+    var body: some View {
+
+        HStack(spacing: 14) {
+
+            Image(systemName: course.icon)
+                .font(.system(size: 27))
+                .foregroundStyle(.blue)
+                .frame(width: 60, height: 60)
+                .background(Color.blue.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            VStack(alignment: .leading, spacing: 6) {
+
+                Text(course.title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+
+                Text(course.category)
+                    .font(.subheadline)
+                    .foregroundStyle(.blue)
+
+                Text(course.instructor)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            // R3: Binding to shared favourite state
+            FavouriteButton(
+                isFavourite: favouriteBinding
+            )
+        }
+        .padding(12)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var favouriteBinding: Binding<Bool> {
+
+        Binding(
+            get: {
+                courseStore.isFavourite(course)
+            },
+            set: { newValue in
+                courseStore.setFavourite(newValue, for: course)
+            }
+        )
+    }
+}
+
+// MARK: - R3: REUSABLE FAVOURITE BUTTON
+
+struct FavouriteButton: View {
+
+    @Binding var isFavourite: Bool
+
+    var body: some View {
+
+        Button {
+
+            // Modify the parent-owned value
+            isFavourite.toggle()
+
+        } label: {
+
+            Image(
+                systemName: isFavourite
+                    ? "heart.fill"
+                    : "heart"
+            )
+            .font(.title2)
+            .foregroundStyle(
+                isFavourite ? .red : .secondary
+            )
+            .padding(8)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(
+            isFavourite
+                ? "Remove from favourites"
+                : "Add to favourites"
+        )
+    }
+}
+
+// MARK: - R4: COURSE DETAIL SCREEN
+
+struct CourseDetailView: View {
+
+    let course: Course
+
+    @EnvironmentObject var courseStore: CourseStore
+
+    var body: some View {
+
+        ScrollView {
+
+            VStack(alignment: .leading, spacing: 20) {
+
+                // Course image area
+                Image(systemName: course.icon)
+                    .font(.system(size: 75))
+                    .foregroundStyle(.blue)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 180)
+                    .background(Color.blue.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+
+                Text(course.category.uppercased())
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.blue)
+
+                Text(course.title)
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+
+                Label(
+                    course.instructor,
+                    systemImage: "person.fill"
+                )
+
+                Label(
+                    course.duration,
+                    systemImage: "clock.fill"
+                )
+
+                Divider()
+
+                Text("About this course")
+                    .font(.title2)
+                    .fontWeight(.bold)
+
+                Text(course.description)
+                    .foregroundStyle(.secondary)
+                    .lineSpacing(5)
+
+                // R4: Same shared favourite state as the list
+                HStack {
+
+                    Text(
+                        courseStore.isFavourite(course)
+                            ? "Added to your favourites"
+                            : "Not in your favourites"
+                    )
+                    .font(.subheadline)
+
+                    Spacer()
+
+                    FavouriteButton(
+                        isFavourite: favouriteBinding
+                    )
+                }
+                .padding()
+                .background(Color(.secondarySystemGroupedBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .padding()
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle("Course Details")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var favouriteBinding: Binding<Bool> {
+
+        Binding(
+            get: {
+                courseStore.isFavourite(course)
+            },
+            set: { newValue in
+                courseStore.setFavourite(newValue, for: course)
+            }
+        )
+    }
+}
+
+// MARK: - EMPTY STATE
+
+struct EmptyCoursesView: View {
+
+    let message: String
+
+    var body: some View {
+
+        VStack(spacing: 15) {
+
+            Image(systemName: "book.closed")
+                .font(.system(size: 55))
+                .foregroundStyle(.secondary)
+
+            Text(message)
+                .font(.headline)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+        }
+        .padding(30)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - PREVIEWS
+
+#Preview("Course Explorer") {
+    ContentView()
+        .environmentObject(CourseStore())
+}
+
+#Preview("Course Detail") {
+    NavigationStack {
+        CourseDetailView(course: Course.samples[0])
+    }
+    .environmentObject(CourseStore())
+}

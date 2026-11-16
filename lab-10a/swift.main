@@ -1,0 +1,350 @@
+
+import Foundation
+import Combine
+import XCTest
+
+// MARK: - R2: Grade Calculator
+
+struct GradeCalculator {
+
+    func percentage(
+        obtainedMarks: Double,
+        totalMarks: Double
+    ) -> Double? {
+
+        guard obtainedMarks.isFinite,
+              totalMarks.isFinite,
+              totalMarks > 0,
+              obtainedMarks >= 0,
+              obtainedMarks <= totalMarks else {
+            return nil
+        }
+
+        return (obtainedMarks / totalMarks) * 100
+    }
+
+    func grade(for percentage: Double) -> String? {
+
+        guard percentage.isFinite,
+              (0...100).contains(percentage) else {
+            return nil
+        }
+
+        switch percentage {
+        case 90...100:
+            return "A"
+        case 80..<90:
+            return "B"
+        case 70..<80:
+            return "C"
+        case 60..<70:
+            return "D"
+        default:
+            return "F"
+        }
+    }
+}
+
+// MARK: - R2: Registration Validator
+
+struct RegistrationValidator {
+
+    func isValidName(_ name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+
+        return trimmed.count >= 2
+    }
+
+    func isValidEmail(_ email: String) -> Bool {
+        let trimmed = email.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+
+        let pattern =
+            #"^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"#
+
+        return trimmed.range(
+            of: pattern,
+            options: .regularExpression
+        ) != nil
+    }
+
+    func isValidRegistration(
+        name: String,
+        email: String
+    ) -> Bool {
+        isValidName(name) && isValidEmail(email)
+    }
+}
+
+// MARK: - Student Model
+
+struct Student: Identifiable, Equatable {
+    let id: Int
+    let name: String
+    let course: String
+}
+
+// MARK: - R5: Service Protocol
+
+protocol StudentService {
+    func fetchStudents() async throws -> [Student]
+}
+
+// MARK: - Fake Service
+
+struct FakeStudentService: StudentService {
+
+    let students: [Student]
+
+    func fetchStudents() async throws -> [Student] {
+        return students
+    }
+}
+
+// MARK: - R2: Student ViewModel
+
+@MainActor
+final class StudentViewModel: ObservableObject {
+
+    @Published private(set) var students: [Student] = []
+    @Published private(set) var isLoading = false
+    @Published private(set) var errorMessage: String?
+
+    private let service: StudentService
+
+    init(service: StudentService) {
+        self.service = service
+    }
+
+    func loadStudents() async {
+        isLoading = true
+        errorMessage = nil
+
+        defer {
+            isLoading = false
+        }
+
+        do {
+            students = try await service.fetchStudents()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - R1, R2, R3, R4 and R5: Unit Tests
+
+final class StudentManagementTests: XCTestCase {
+
+    // MARK: Grade Calculation Tests
+
+    func testPercentageCalculationForNormalMarks() {
+        let calculator = GradeCalculator()
+
+        let result = calculator.percentage(
+            obtainedMarks: 80,
+            totalMarks: 100
+        )
+
+        XCTAssertEqual(result ?? -1, 80.0, accuracy: 0.001)
+    }
+
+    func testPercentageCalculationForZeroMarks() {
+        let calculator = GradeCalculator()
+
+        let result = calculator.percentage(
+            obtainedMarks: 0,
+            totalMarks: 100
+        )
+
+        XCTAssertEqual(result ?? -1, 0.0, accuracy: 0.001)
+    }
+
+    func testPercentageCalculationForFullMarks() {
+        let calculator = GradeCalculator()
+
+        let result = calculator.percentage(
+            obtainedMarks: 100,
+            totalMarks: 100
+        )
+
+        XCTAssertEqual(result ?? -1, 100.0, accuracy: 0.001)
+    }
+
+    func testPercentageRejectsNegativeMarks() {
+        let calculator = GradeCalculator()
+
+        let result = calculator.percentage(
+            obtainedMarks: -10,
+            totalMarks: 100
+        )
+
+        XCTAssertNil(result)
+    }
+
+    func testPercentageRejectsMarksAboveTotal() {
+        let calculator = GradeCalculator()
+
+        let result = calculator.percentage(
+            obtainedMarks: 110,
+            totalMarks: 100
+        )
+
+        XCTAssertNil(result)
+    }
+
+    func testPercentageRejectsZeroTotalMarks() {
+        let calculator = GradeCalculator()
+
+        let result = calculator.percentage(
+            obtainedMarks: 50,
+            totalMarks: 0
+        )
+
+        XCTAssertNil(result)
+    }
+
+    func testGradeCalculationAtBoundaries() {
+        let calculator = GradeCalculator()
+
+        XCTAssertEqual(calculator.grade(for: 100), "A")
+        XCTAssertEqual(calculator.grade(for: 90), "A")
+        XCTAssertEqual(calculator.grade(for: 80), "B")
+        XCTAssertEqual(calculator.grade(for: 70), "C")
+        XCTAssertEqual(calculator.grade(for: 60), "D")
+        XCTAssertEqual(calculator.grade(for: 59.99), "F")
+        XCTAssertEqual(calculator.grade(for: 0), "F")
+    }
+
+    func testGradeRejectsInvalidPercentage() {
+        let calculator = GradeCalculator()
+
+        XCTAssertNil(calculator.grade(for: -1))
+        XCTAssertNil(calculator.grade(for: 101))
+    }
+
+    // MARK: Registration Validation Tests
+
+    func testValidRegistrationDetails() {
+        let validator = RegistrationValidator()
+
+        let result = validator.isValidRegistration(
+            name: "Rahul Sharma",
+            email: "rahul@example.com"
+        )
+
+        XCTAssertTrue(result)
+    }
+
+    func testNameWithMinimumTwoCharactersIsValid() {
+        let validator = RegistrationValidator()
+
+        XCTAssertTrue(validator.isValidName("AB"))
+    }
+
+    func testNameWithOneCharacterIsInvalid() {
+        let validator = RegistrationValidator()
+
+        XCTAssertFalse(validator.isValidName("A"))
+    }
+
+    func testNameWithOnlySpacesIsInvalid() {
+        let validator = RegistrationValidator()
+
+        XCTAssertFalse(validator.isValidName("   "))
+    }
+
+    func testEmailWithoutAtSymbolIsInvalid() {
+        let validator = RegistrationValidator()
+
+        XCTAssertFalse(
+            validator.isValidEmail("rahul.example.com")
+        )
+    }
+
+    func testEmailWithoutDomainIsInvalid() {
+        let validator = RegistrationValidator()
+
+        XCTAssertFalse(
+            validator.isValidEmail("rahul@")
+        )
+    }
+
+    func testEmailWithSurroundingSpacesIsValid() {
+        let validator = RegistrationValidator()
+
+        XCTAssertTrue(
+            validator.isValidEmail("  rahul@example.com  ")
+        )
+    }
+
+    func testRegistrationRejectsInvalidEmail() {
+        let validator = RegistrationValidator()
+
+        let result = validator.isValidRegistration(
+            name: "Rahul",
+            email: "invalid-email"
+        )
+
+        XCTAssertFalse(result)
+    }
+
+    // MARK: ViewModel Tests Using Fake Service
+
+    @MainActor
+    func testViewModelLoadsStudentsSuccessfully() async {
+
+        let sampleStudents = [
+            Student(
+                id: 1,
+                name: "Rahul",
+                course: "Computer Science"
+            ),
+            Student(
+                id: 2,
+                name: "Priya",
+                course: "Information Technology"
+            )
+        ]
+
+        let fakeService = FakeStudentService(
+            students: sampleStudents
+        )
+
+        let viewModel = StudentViewModel(
+            service: fakeService
+        )
+
+        await viewModel.loadStudents()
+
+        XCTAssertEqual(viewModel.students.count, 2)
+        XCTAssertEqual(viewModel.students[0].name, "Rahul")
+        XCTAssertEqual(
+            viewModel.students[1].course,
+            "Information Technology"
+        )
+        XCTAssertFalse(viewModel.isLoading)
+        XCTAssertNil(viewModel.errorMessage)
+    }
+
+    @MainActor
+    func testViewModelLoadsEmptyStudentList() async {
+
+        let fakeService = FakeStudentService(
+            students: []
+        )
+
+        let viewModel = StudentViewModel(
+            service: fakeService
+        )
+
+        await viewModel.loadStudents()
+
+        XCTAssertTrue(viewModel.students.isEmpty)
+        XCTAssertFalse(viewModel.isLoading)
+        XCTAssertNil(viewModel.errorMessage)
+    }
+}

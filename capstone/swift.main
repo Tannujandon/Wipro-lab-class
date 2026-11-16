@@ -1,0 +1,647 @@
+
+import SwiftUI
+
+// MARK: - MODEL
+
+struct Course: Identifiable, Equatable {
+    let id: Int
+    let title: String
+    let category: String
+    let description: String
+    let duration: String
+    let fee: Double
+}
+
+struct Registration: Identifiable, Equatable {
+    let id: UUID
+    let studentName: String
+    let email: String
+    let courseID: Int
+}
+
+// MARK: - SERVICE
+
+protocol CourseService {
+    func fetchCourses() throws -> [Course]
+    func register(_ registration: Registration) throws
+}
+
+enum CourseError: LocalizedError {
+    case unavailable
+    case duplicateRegistration
+    case invalidRegistration
+
+    var errorDescription: String? {
+        switch self {
+        case .unavailable:
+            return "Courses are currently unavailable."
+        case .duplicateRegistration:
+            return "You are already registered for this course."
+        case .invalidRegistration:
+            return "Please provide valid registration details."
+        }
+    }
+}
+
+final class InMemoryCourseService: CourseService {
+
+    private var registrations: [Registration] = []
+
+    private let courses: [Course] = [
+        Course(
+            id: 1,
+            title: "Java Programming",
+            category: "Programming",
+            description: "Learn Java, OOP, collections and exception handling.",
+            duration: "8 Weeks",
+            fee: 2500
+        ),
+        Course(
+            id: 2,
+            title: "Python Development",
+            category: "Programming",
+            description: "Learn Python fundamentals and practical projects.",
+            duration: "6 Weeks",
+            fee: 2000
+        ),
+        Course(
+            id: 3,
+            title: "Artificial Intelligence",
+            category: "Technology",
+            description: "Explore machine learning and AI applications.",
+            duration: "10 Weeks",
+            fee: 3500
+        ),
+        Course(
+            id: 4,
+            title: "Web Development",
+            category: "Development",
+            description: "Build websites using HTML, CSS and JavaScript.",
+            duration: "8 Weeks",
+            fee: 2800
+        ),
+        Course(
+            id: 5,
+            title: "UI/UX Design",
+            category: "Design",
+            description: "Learn user research, wireframes and interface design.",
+            duration: "5 Weeks",
+            fee: 1800
+        )
+    ]
+
+    func fetchCourses() throws -> [Course] {
+        return courses
+    }
+
+    func register(_ registration: Registration) throws {
+        guard !registrations.contains(where: {
+            $0.courseID == registration.courseID &&
+            $0.email.caseInsensitiveCompare(registration.email) == .orderedSame
+        }) else {
+            throw CourseError.duplicateRegistration
+        }
+
+        registrations.append(registration)
+    }
+}
+
+// MARK: - VALIDATION HELPER
+
+struct RegistrationValidator {
+
+    func isValidName(_ name: String) -> Bool {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2
+    }
+
+    func isValidEmail(_ email: String) -> Bool {
+        let trimmed = email.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+
+        let pattern =
+            #"^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"#
+
+        return trimmed.range(
+            of: pattern,
+            options: .regularExpression
+        ) != nil
+    }
+
+    func isValid(name: String, email: String) -> Bool {
+        isValidName(name) && isValidEmail(email)
+    }
+}
+
+// MARK: - VIEW MODEL
+
+@MainActor
+final class CourseViewModel: ObservableObject {
+
+    @Published private(set) var courses: [Course] = []
+    @Published private(set) var registrations: [Registration] = []
+    @Published private(set) var isLoading = false
+    @Published var errorMessage: String?
+
+    private let service: CourseService
+    private let validator = RegistrationValidator()
+
+    init(service: CourseService = InMemoryCourseService()) {
+        self.service = service
+    }
+
+    func loadCourses() {
+        isLoading = true
+        errorMessage = nil
+
+        defer {
+            isLoading = false
+        }
+
+        do {
+            courses = try service.fetchCourses()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    // Collection transformation: search, filter and sort.
+    func filteredCourses(
+        search: String,
+        category: String
+    ) -> [Course] {
+
+        courses
+            .filter { course in
+                let matchesSearch =
+                    search.isEmpty ||
+                    course.title.localizedCaseInsensitiveContains(search) ||
+                    course.category.localizedCaseInsensitiveContains(search)
+
+                let matchesCategory =
+                    category == "All" || course.category == category
+
+                return matchesSearch && matchesCategory
+            }
+            .sorted { $0.title < $1.title }
+    }
+
+    var categories: [String] {
+        ["All"] + Array(Set(courses.map { $0.category })).sorted()
+    }
+
+    func register(
+        name: String,
+        email: String,
+        course: Course
+    ) -> Bool {
+
+        guard validator.isValid(name: name, email: email) else {
+            errorMessage = "Enter a valid name and email address."
+            return false
+        }
+
+        let registration = Registration(
+            id: UUID(),
+            studentName: name.trimmingCharacters(
+                in: .whitespacesAndNewlines
+            ),
+            email: email.trimmingCharacters(
+                in: .whitespacesAndNewlines
+            ),
+            courseID: course.id
+        )
+
+        do {
+            try service.register(registration)
+            registrations.append(registration)
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    func clearError() {
+        errorMessage = nil
+    }
+}
+
+// MARK: - APP ENTRY POINT
+
+@main
+struct CoursePlannerApp: App {
+
+    @StateObject private var viewModel = CourseViewModel()
+
+    var body: some Scene {
+        WindowGroup {
+            DashboardView()
+                .environmentObject(viewModel)
+                .onAppear {
+                    viewModel.loadCourses()
+                }
+        }
+    }
+}
+
+// MARK: - SCREEN 1: DASHBOARD
+
+struct DashboardView: View {
+
+    @EnvironmentObject var viewModel: CourseViewModel
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+
+                    Text("Welcome to Course Planner")
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    Text("Manage your learning journey.")
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 12) {
+                        StatisticCard(
+                            title: "Courses",
+                            value: "\(viewModel.courses.count)",
+                            icon: "book.fill"
+                        )
+
+                        StatisticCard(
+                            title: "Registered",
+                            value: "\(viewModel.registrations.count)",
+                            icon: "person.fill"
+                        )
+                    }
+
+                    NavigationLink {
+                        CourseListView()
+                    } label: {
+                        NavigationCard(
+                            title: "Explore Courses",
+                            subtitle: "Browse available courses",
+                            icon: "books.vertical.fill"
+                        )
+                    }
+
+                    NavigationLink {
+                        RegistrationListView()
+                    } label: {
+                        NavigationCard(
+                            title: "My Registrations",
+                            subtitle: "View enrolled courses",
+                            icon: "checkmark.circle.fill"
+                        )
+                    }
+
+                    if let error = viewModel.errorMessage {
+                        Text(error)
+                            .foregroundStyle(.red)
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("Dashboard")
+        }
+    }
+}
+
+// MARK: - REUSABLE STATISTIC CARD
+
+struct StatisticCard: View {
+
+    let title: String
+    let value: String
+    let icon: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundStyle(.blue)
+
+            Text(value)
+                .font(.largeTitle)
+                .fontWeight(.bold)
+
+            Text(title)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.blue.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+// MARK: - REUSABLE NAVIGATION CARD
+
+struct NavigationCard: View {
+
+    let title: String
+    let subtitle: String
+    let icon: String
+
+    var body: some View {
+        HStack(spacing: 15) {
+            Image(systemName: icon)
+                .font(.title)
+                .foregroundStyle(.blue)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title)
+                    .font(.headline)
+
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+// MARK: - SCREEN 2: COURSE LIST
+
+struct CourseListView: View {
+
+    @EnvironmentObject var viewModel: CourseViewModel
+
+    @State private var searchText = ""
+    @State private var selectedCategory = "All"
+
+    private var displayedCourses: [Course] {
+        viewModel.filteredCourses(
+            search: searchText,
+            category: selectedCategory
+        )
+    }
+
+    var body: some View {
+        VStack {
+            TextField("Search courses", text: $searchText)
+                .textFieldStyle(.roundedBorder)
+                .padding(.horizontal)
+
+            Picker("Category", selection: $selectedCategory) {
+                ForEach(viewModel.categories, id: \.self) { category in
+                    Text(category).tag(category)
+                }
+            }
+            .pickerStyle(.menu)
+            .padding(.horizontal)
+
+            if viewModel.isLoading {
+                ProgressView("Loading courses...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            } else if let error = viewModel.errorMessage {
+                ContentUnavailableView(
+                    "Unable to Load Courses",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(error)
+                )
+
+            } else if displayedCourses.isEmpty {
+                ContentUnavailableView(
+                    "No Courses Found",
+                    systemImage: "book.closed",
+                    description: Text("Try changing your search or category.")
+                )
+
+            } else {
+                List(displayedCourses) { course in
+                    NavigationLink {
+                        CourseDetailView(course: course)
+                    } label: {
+                        CourseRow(course: course)
+                    }
+                }
+                .listStyle(.plain)
+            }
+        }
+        .navigationTitle("Courses")
+    }
+}
+
+// MARK: - REUSABLE COURSE ROW
+
+struct CourseRow: View {
+
+    let course: Course
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "book.fill")
+                .font(.title2)
+                .foregroundStyle(.blue)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(course.title)
+                    .font(.headline)
+
+                Text(course.category)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text(course.duration)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Text("₹\(Int(course.fee))")
+                .fontWeight(.semibold)
+        }
+        .padding(.vertical, 6)
+    }
+}
+
+// MARK: - SCREEN 3: COURSE DETAIL
+
+struct CourseDetailView: View {
+
+    let course: Course
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+
+                Image(systemName: "book.closed.fill")
+                    .font(.system(size: 65))
+                    .foregroundStyle(.blue)
+                    .frame(maxWidth: .infinity)
+                    .padding(30)
+                    .background(Color.blue.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+
+                Text(course.title)
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+
+                Text(course.category)
+                    .foregroundStyle(.blue)
+
+                Text(course.description)
+
+                Label(course.duration, systemImage: "clock")
+
+                Label(
+                    "₹\(Int(course.fee))",
+                    systemImage: "indianrupeesign.circle"
+                )
+                .font(.headline)
+
+                NavigationLink {
+                    RegistrationView(course: course)
+                } label: {
+                    Text("Register for Course")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(.blue)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+            }
+            .padding()
+        }
+        .navigationTitle("Course Details")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - SCREEN 4: REGISTRATION
+
+struct RegistrationView: View {
+
+    @EnvironmentObject var viewModel: CourseViewModel
+
+    let course: Course
+
+    @State private var name = ""
+    @State private var email = ""
+    @State private var showSuccess = false
+    @State private var attemptedSubmit = false
+
+    private let validator = RegistrationValidator()
+
+    var body: some View {
+        Form {
+            Section("Selected Course") {
+                Text(course.title)
+                Text("Fee: ₹\(Int(course.fee))")
+            }
+
+            Section("Student Details") {
+                TextField("Full Name", text: $name)
+                    .textContentType(.name)
+
+                TextField("Email Address", text: $email)
+                    .keyboardType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+
+                if attemptedSubmit && !validator.isValidName(name) {
+                    Text("Enter a name with at least two characters.")
+                        .foregroundStyle(.red)
+                        .font(.caption)
+                }
+
+                if attemptedSubmit && !validator.isValidEmail(email) {
+                    Text("Enter a valid email address.")
+                        .foregroundStyle(.red)
+                        .font(.caption)
+                }
+            }
+
+            Section {
+                Button("Submit Registration") {
+                    attemptedSubmit = true
+
+                    if viewModel.register(
+                        name: name,
+                        email: email,
+                        course: course
+                    ) {
+                        showSuccess = true
+                    }
+                }
+                .disabled(
+                    !validator.isValid(name: name, email: email)
+                )
+            }
+
+            if let error = viewModel.errorMessage {
+                Section("Registration Status") {
+                    Text(error)
+                        .foregroundStyle(.red)
+                }
+            }
+        }
+        .navigationTitle("Registration")
+        .alert("Registration Successful", isPresented: $showSuccess) {
+            Button("Done", role: .cancel) { }
+        } message: {
+            Text("You are registered for \(course.title).")
+        }
+    }
+}
+
+// MARK: - SCREEN 5: MY REGISTRATIONS
+
+struct RegistrationListView: View {
+
+    @EnvironmentObject var viewModel: CourseViewModel
+
+    private func courseName(for registration: Registration) -> String {
+        viewModel.courses.first {
+            $0.id == registration.courseID
+        }?.title ?? "Course unavailable"
+    }
+
+    var body: some View {
+        Group {
+            if viewModel.registrations.isEmpty {
+                ContentUnavailableView(
+                    "No Registrations Yet",
+                    systemImage: "person.crop.circle.badge.questionmark",
+                    description: Text("Register for a course to see it here.")
+                )
+            } else {
+                List(viewModel.registrations) { registration in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(courseName(for: registration))
+                            .font(.headline)
+
+                        Text(registration.studentName)
+                        Text(registration.email)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 5)
+                }
+            }
+        }
+        .navigationTitle("My Registrations")
+    }
+}
+
+// MARK: - PREVIEW
+
+#Preview {
+    DashboardView()
+        .environmentObject(CourseViewModel())
+}

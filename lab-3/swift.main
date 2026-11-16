@@ -1,0 +1,195 @@
+
+import SwiftUI
+import UIKit
+
+// ==========================================
+// R1 & R2: SWIFTUI IMPLEMENTATION
+// ==========================================
+
+struct SwiftUIScreen: View {
+
+    @State private var studentName: String = ""
+    @State private var result: String = "Your result will appear here"
+
+    var body: some View {
+
+        VStack(spacing: 20) {
+
+            Text("Student Greeting App")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+
+            TextField("Enter your name", text: $studentName)
+                .textFieldStyle(.roundedBorder)
+                .padding(.horizontal)
+
+            Button(action: {
+
+                let name = studentName.trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                )
+
+                if name.isEmpty {
+                    result = "Please enter your name"
+                } else {
+                    result = "Welcome, \(name)!"
+                }
+
+            }) {
+                Text("Submit")
+                    .foregroundColor(.white)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.blue)
+                    .cornerRadius(10)
+            }
+            .padding(.horizontal)
+
+            Text(result)
+                .font(.headline)
+                .foregroundColor(.green)
+        }
+        .padding()
+    }
+}
+
+
+// ==========================================
+// R1 & R3: UIKIT IMPLEMENTATION
+// ==========================================
+
+class UIKitScreen: UIViewController {
+
+    let titleLabel = UILabel()
+    let nameTextField = UITextField()
+    let submitButton = UIButton(type: .system)
+    let resultLabel = UILabel()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        view.backgroundColor = .white
+
+        setupUI()
+    }
+
+    func setupUI() {
+
+        // Title
+        titleLabel.text = "Student Greeting App"
+        titleLabel.font = .boldSystemFont(ofSize: 26)
+        titleLabel.textAlignment = .center
+
+        // Text Field
+        nameTextField.placeholder = "Enter your name"
+        nameTextField.borderStyle = .roundedRect
+
+        // Button
+        submitButton.setTitle("Submit", for: .normal)
+        submitButton.backgroundColor = .systemBlue
+        submitButton.setTitleColor(.white, for: .normal)
+        submitButton.layer.cornerRadius = 10
+
+        // R3: Button action
+        submitButton.addTarget(
+            self,
+            action: #selector(submitButtonTapped),
+            for: .touchUpInside
+        )
+
+        // Result Label
+        resultLabel.text = "Your result will appear here"
+        resultLabel.font = .systemFont(ofSize: 18)
+        resultLabel.textAlignment = .center
+        resultLabel.numberOfLines = 0
+
+        // Stack View
+        let stackView = UIStackView(
+            arrangedSubviews: [
+                titleLabel,
+                nameTextField,
+                submitButton,
+                resultLabel
+            ]
+        )
+
+        stackView.axis = .vertical
+        stackView.spacing = 20
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+
+        view.addSubview(stackView)
+
+        // Auto Layout Constraints
+        NSLayoutConstraint.activate([
+
+            stackView.centerYAnchor.constraint(
+                equalTo: view.centerYAnchor
+            ),
+
+            stackView.leadingAnchor.constraint(
+                equalTo: view.leadingAnchor,
+                constant: 25
+            ),
+
+            stackView.trailingAnchor.constraint(
+                equalTo: view.trailingAnchor,
+                constant: -25
+            ),
+
+            submitButton.heightAnchor.constraint(
+                equalToConstant: 45
+            )
+        ])
+    }
+
+    // Button Click Action
+    @objc func submitButtonTapped() {
+
+        let name = nameTextField.text?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        if name.isEmpty {
+            resultLabel.text = "Please enter your name"
+        } else {
+            resultLabel.text = "Welcome, \(name)!"
+        }
+    }
+}
+
+
+// ==========================================
+// MAIN APP: SELECT WHICH SCREEN TO DISPLAY
+// ==========================================
+
+@main
+struct StudentGreetingApp: App {
+
+    var body: some Scene {
+        WindowGroup {
+
+            // Change this to UIKitContainer()
+            // if you want to run the UIKit screen.
+
+            SwiftUIScreen()
+        }
+    }
+}
+
+
+// ==========================================
+// OPTIONAL: CONNECT UIKIT TO SWIFTUI
+// ==========================================
+
+struct UIKitContainer: UIViewControllerRepresentable {
+
+    func makeUIViewController(context: Context) -> UIKitScreen {
+        return UIKitScreen()
+    }
+
+    func updateUIViewController(
+        _ uiViewController: UIKitScreen,
+        context: Context
+    ) {
+        // No update required for this example.
+    }
+}

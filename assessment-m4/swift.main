@@ -1,0 +1,427 @@
+
+import SwiftUI
+
+// MARK: - Model
+
+struct Course: Identifiable, Hashable {
+    let id: Int
+    let title: String
+    let category: String
+    let description: String
+    let duration: String
+
+    static let samples: [Course] = [
+        Course(
+            id: 1,
+            title: "Java Programming",
+            category: "Programming",
+            description: "Learn Java fundamentals, OOP, collections and exception handling.",
+            duration: "8 Weeks"
+        ),
+        Course(
+            id: 2,
+            title: "Python Development",
+            category: "Programming",
+            description: "Learn Python syntax, functions, data structures and projects.",
+            duration: "6 Weeks"
+        ),
+        Course(
+            id: 3,
+            title: "Artificial Intelligence",
+            category: "Technology",
+            description: "Explore AI concepts, machine learning and practical applications.",
+            duration: "10 Weeks"
+        ),
+        Course(
+            id: 4,
+            title: "Web Development",
+            category: "Development",
+            description: "Build websites using HTML, CSS and JavaScript.",
+            duration: "8 Weeks"
+        )
+    ]
+}
+
+// MARK: - Shared Observable Store
+
+@MainActor
+final class CourseStore: ObservableObject {
+    @Published var courses = Course.samples
+    @Published private(set) var favouriteIDs: Set<Int> = []
+
+    func isFavourite(_ course: Course) -> Bool {
+        favouriteIDs.contains(course.id)
+    }
+
+    func toggleFavourite(_ course: Course) {
+        if favouriteIDs.contains(course.id) {
+            favouriteIDs.remove(course.id)
+        } else {
+            favouriteIDs.insert(course.id)
+        }
+    }
+}
+
+// MARK: - App Entry Point
+
+@main
+struct CourseExplorerApp: App {
+    @StateObject private var store = CourseStore()
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .environmentObject(store)
+        }
+    }
+}
+
+// MARK: - Main List Screen
+
+struct ContentView: View {
+    @EnvironmentObject var store: CourseStore
+
+    @State private var selectedFilter = "All"
+    @State private var searchText = ""
+
+    private var filteredCourses: [Course] {
+        store.courses.filter { course in
+            let matchesFilter =
+                selectedFilter == "All" ||
+                store.isFavourite(course)
+
+            let matchesSearch =
+                searchText.isEmpty ||
+                course.title.localizedCaseInsensitiveContains(searchText) ||
+                course.category.localizedCaseInsensitiveContains(searchText)
+
+            return matchesFilter && matchesSearch
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack {
+                Picker("Filter", selection: $selectedFilter) {
+                    Text("All Courses").tag("All")
+                    Text("Favourites").tag("Favourites")
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+
+                if filteredCourses.isEmpty {
+                    ContentUnavailableView(
+                        "No Courses Found",
+                        systemImage: "book.closed",
+                        description: Text("Try another search or add a favourite.")
+                    )
+                } else {
+                    List(filteredCourses) { course in
+                        NavigationLink(value: course) {
+                            CourseRowView(course: course)
+                        }
+                    }
+                    .listStyle(.plain)
+                }
+            }
+            .navigationTitle("Course Explorer")
+            .searchable(text: $searchText, prompt: "Search courses")
+            .navigationDestination(for: Course.self) { course in
+                CourseDetailView(course: course)
+            }
+        }
+    }
+}
+
+// MARK: - Reusable Course Row
+
+struct CourseRowView: View {
+    @EnvironmentObject var store: CourseStore
+
+    let course: Course
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "book.fill")
+                .font(.title2)
+                .foregroundStyle(.blue)
+                .frame(width: 45, height: 45)
+                .background(Color.blue.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(course.title)
+                    .font(.headline)
+
+                Text(course.category)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            FavouriteButton(
+                isFavourite: Binding(
+                    get: { store.isFavourite(course) },
+                    set: { _ in store.toggleFavourite(course) }
+                )
+            )
+        }
+        .padding(.vertical, 5)
+    }
+}
+
+// MARK: - Detail Screen
+
+struct CourseDetailView: View {
+    @EnvironmentObject var store: CourseStore
+    @State private var showRegistration = false
+
+    let course: Course
+
+    private var favouriteBinding: Binding<Bool> {
+        Binding(
+            get: { store.isFavourite(course) },
+            set: { _ in store.toggleFavourite(course) }
+        )
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Image(systemName: "book.closed.fill")
+                    .font(.system(size: 70))
+                    .foregroundStyle(.blue)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 30)
+                    .background(Color.blue.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
+
+                Text(course.title)
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+
+                Text(course.category)
+                    .font(.headline)
+                    .foregroundStyle(.blue)
+
+                Text(course.description)
+                    .font(.body)
+
+                Label(course.duration, systemImage: "clock")
+                    .foregroundStyle(.secondary)
+
+                FavouriteButton(isFavourite: favouriteBinding)
+                    .frame(maxWidth: .infinity)
+
+                Button {
+                    showRegistration = true
+                } label: {
+                    Text("Register for Course")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+            }
+            .padding()
+        }
+        .navigationTitle("Course Details")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showRegistration) {
+            NavigationStack {
+                RegistrationView(course: course)
+            }
+        }
+    }
+}
+
+// MARK: - Reusable Favourite Button
+
+struct FavouriteButton: View {
+    @Binding var isFavourite: Bool
+
+    var body: some View {
+        Button {
+            isFavourite.toggle()
+        } label: {
+            Label(
+                isFavourite ? "Remove Favourite" : "Add Favourite",
+                systemImage: isFavourite ? "heart.fill" : "heart"
+            )
+            .foregroundStyle(isFavourite ? .red : .blue)
+        }
+        .buttonStyle(.bordered)
+    }
+}
+
+// MARK: - Registration Form
+
+struct RegistrationView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let course: Course
+
+    @State private var fullName = ""
+    @State private var email = ""
+    @State private var acceptedTerms = false
+
+    @State private var isLoading = false
+    @State private var showSuccess = false
+    @State private var showError = false
+    @State private var errorMessage = ""
+
+    @State private var hasAttemptedSubmit = false
+
+    private var trimmedName: String {
+        fullName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var trimmedEmail: String {
+        email.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var isNameValid: Bool {
+        trimmedName.count >= 2
+    }
+
+    private var isEmailValid: Bool {
+        let pattern = #"^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"#
+        return trimmedEmail.range(
+            of: pattern,
+            options: .regularExpression
+        ) != nil
+    }
+
+    private var isFormValid: Bool {
+        isNameValid && isEmailValid && acceptedTerms
+    }
+
+    var body: some View {
+        Form {
+            Section("Selected Course") {
+                Text(course.title)
+                Text(course.duration)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Personal Information") {
+                TextField("Full Name", text: $fullName)
+                    .textContentType(.name)
+                    .textInputAutocapitalization(.words)
+
+                if hasAttemptedSubmit && !isNameValid {
+                    Text("Enter a name with at least 2 characters.")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+
+                TextField("Email Address", text: $email)
+                    .keyboardType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+
+                if hasAttemptedSubmit && !isEmailValid {
+                    Text("Enter a valid email address.")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+
+            Section("Consent") {
+                Toggle("I accept the registration terms", isOn: $acceptedTerms)
+
+                if hasAttemptedSubmit && !acceptedTerms {
+                    Text("Please accept the terms to continue.")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+
+            Section {
+                Button {
+                    submitRegistration()
+                } label: {
+                    HStack {
+                        Spacer()
+
+                        if isLoading {
+                            ProgressView()
+                            Text("Submitting...")
+                        } else {
+                            Text("Submit Registration")
+                                .fontWeight(.semibold)
+                        }
+
+                        Spacer()
+                    }
+                }
+                .disabled(isLoading || !isFormValid)
+
+                if !isFormValid {
+                    Text("Complete all required fields to enable registration.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .navigationTitle("Registration")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Close") {
+                    dismiss()
+                }
+                .disabled(isLoading)
+            }
+        }
+        .alert("Registration Successful", isPresented: $showSuccess) {
+            Button("Done") {
+                dismiss()
+            }
+        } message: {
+            Text("You have successfully registered for \(course.title).")
+        }
+        .alert("Registration Failed", isPresented: $showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
+    }
+
+    private func submitRegistration() {
+        hasAttemptedSubmit = true
+
+        guard isFormValid else {
+            return
+        }
+
+        isLoading = true
+
+        Task {
+            // Simulate a network request.
+            try? await Task.sleep(for: .seconds(2))
+
+            await MainActor.run {
+                isLoading = false
+
+                // Demo error condition for testing.
+                if trimmedEmail.lowercased().contains("fail") {
+                    errorMessage = "The registration could not be completed. Please try again."
+                    showError = true
+                } else {
+                    showSuccess = true
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Preview
+
+#Preview {
+    ContentView()
+        .environmentObject(CourseStore())
+}

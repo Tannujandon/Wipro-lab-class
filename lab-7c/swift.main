@@ -1,0 +1,513 @@
+
+import UIKit
+
+// MARK: - APP DELEGATE
+
+@main
+class AppDelegate: UIResponder, UIApplicationDelegate {
+
+    var window: UIWindow?
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions:
+        [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
+
+        window = UIWindow(frame: UIScreen.main.bounds)
+
+        let navigationController = UINavigationController(
+            rootViewController: ViewController()
+        )
+
+        window?.rootViewController = navigationController
+        window?.makeKeyAndVisible()
+
+        return true
+    }
+}
+
+// MARK: - MAIN VIEW CONTROLLER
+
+class ViewController: UIViewController {
+
+    // MARK: UI Controls
+
+    private let nameField = UITextField()
+    private let ageSlider = UISlider()
+    private let notificationSwitch = UISwitch()
+    private let courseSegment = UISegmentedControl(
+        items: ["CSE", "IT", "ECE", "ME"]
+    )
+    private let datePicker = UIDatePicker()
+
+    private let summaryLabel = UILabel()
+    private let summaryView = UIView()
+
+    private let nextButton = UIButton(type: .system)
+
+    private let scrollView = UIScrollView()
+    private let contentView = UIView()
+
+    // MARK: Lifecycle - R3
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        print("1. viewDidLoad called")
+
+        view.backgroundColor = .systemBackground
+        title = "Profile Settings"
+
+        setupUI()
+        setupConstraints()
+        setupActions()
+        setupKeyboardHandling()
+
+        updateSummary()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+
+        print("2. viewWillAppear called")
+
+        // Refresh summary whenever screen becomes visible
+        updateSummary()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+
+        print("3. viewDidAppear called")
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+
+        print("4. viewWillDisappear called")
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+
+        print("5. viewDidDisappear called")
+    }
+
+    // MARK: - UI Setup
+
+    private func setupUI() {
+
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentView)
+
+        // Heading
+        let heading = UILabel()
+        heading.text = "Customize Your Profile"
+        heading.font = .boldSystemFont(ofSize: 25)
+        heading.textAlignment = .center
+
+        // Name TextField
+        nameField.placeholder = "Enter your name"
+        nameField.borderStyle = .roundedRect
+        nameField.autocapitalizationType = .words
+        nameField.textContentType = .name
+        nameField.returnKeyType = .done
+
+        // Age Slider
+        ageSlider.minimumValue = 18
+        ageSlider.maximumValue = 35
+        ageSlider.value = 21
+
+        // Notification Switch
+        let notificationLabel = UILabel()
+        notificationLabel.text = "Enable Notifications"
+        notificationLabel.font = .systemFont(ofSize: 16)
+
+        notificationSwitch.isOn = true
+
+        // Course Segment
+        courseSegment.selectedSegmentIndex = 0
+
+        // Date Picker
+        datePicker.datePickerMode = .date
+        datePicker.preferredDatePickerStyle = .compact
+
+        // Summary Panel
+        summaryView.backgroundColor = .secondarySystemBackground
+        summaryView.layer.cornerRadius = 12
+
+        summaryLabel.numberOfLines = 0
+        summaryLabel.font = .systemFont(ofSize: 16)
+
+        // Next Button
+        nextButton.setTitle("Next Screen", for: .normal)
+        nextButton.titleLabel?.font = .boldSystemFont(ofSize: 17)
+        nextButton.backgroundColor = .systemBlue
+        nextButton.setTitleColor(.white, for: .normal)
+        nextButton.layer.cornerRadius = 10
+
+        // Accessibility
+        nameField.accessibilityLabel = "Name"
+        ageSlider.accessibilityLabel = "Age"
+        notificationSwitch.accessibilityLabel = "Enable notifications"
+        courseSegment.accessibilityLabel = "Course"
+        datePicker.accessibilityLabel = "Selected date"
+
+        let notificationStack = UIStackView(
+            arrangedSubviews: [notificationLabel, notificationSwitch]
+        )
+        notificationStack.axis = .horizontal
+        notificationStack.distribution = .equalSpacing
+        notificationStack.alignment = .center
+
+        let components: [UIView] = [
+            heading,
+            nameField,
+            ageSlider,
+            notificationStack,
+            courseSegment,
+            datePicker,
+            summaryView,
+            nextButton
+        ]
+
+        components.forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview($0)
+        }
+
+        summaryLabel.translatesAutoresizingMaskIntoConstraints = false
+        summaryView.addSubview(summaryLabel)
+
+        heading.tag = 100
+        notificationStack.tag = 101
+    }
+
+    // MARK: - Auto Layout
+
+    private func setupConstraints() {
+
+        guard
+            let heading = contentView.viewWithTag(100),
+            let notificationStack = contentView.viewWithTag(101)
+        else {
+            print("UI setup error: required views are missing")
+            return
+        }
+
+        NSLayoutConstraint.activate([
+
+            // Scroll View
+            scrollView.topAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.topAnchor
+            ),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            // Content View
+            contentView.topAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.topAnchor
+            ),
+            contentView.leadingAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.leadingAnchor
+            ),
+            contentView.trailingAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.trailingAnchor
+            ),
+            contentView.bottomAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.bottomAnchor
+            ),
+            contentView.widthAnchor.constraint(
+                equalTo: scrollView.frameLayoutGuide.widthAnchor
+            ),
+
+            // Heading
+            heading.topAnchor.constraint(
+                equalTo: contentView.topAnchor,
+                constant: 30
+            ),
+            heading.leadingAnchor.constraint(
+                equalTo: contentView.leadingAnchor,
+                constant: 20
+            ),
+            heading.trailingAnchor.constraint(
+                equalTo: contentView.trailingAnchor,
+                constant: -20
+            ),
+
+            // Name
+            nameField.topAnchor.constraint(
+                equalTo: heading.bottomAnchor,
+                constant: 30
+            ),
+            nameField.leadingAnchor.constraint(
+                equalTo: heading.leadingAnchor
+            ),
+            nameField.trailingAnchor.constraint(
+                equalTo: heading.trailingAnchor
+            ),
+            nameField.heightAnchor.constraint(equalToConstant: 48),
+
+            // Slider
+            ageSlider.topAnchor.constraint(
+                equalTo: nameField.bottomAnchor,
+                constant: 30
+            ),
+            ageSlider.leadingAnchor.constraint(
+                equalTo: nameField.leadingAnchor
+            ),
+            ageSlider.trailingAnchor.constraint(
+                equalTo: nameField.trailingAnchor
+            ),
+
+            // Notification
+            notificationStack.topAnchor.constraint(
+                equalTo: ageSlider.bottomAnchor,
+                constant: 30
+            ),
+            notificationStack.leadingAnchor.constraint(
+                equalTo: nameField.leadingAnchor
+            ),
+            notificationStack.trailingAnchor.constraint(
+                equalTo: nameField.trailingAnchor
+            ),
+
+            // Course
+            courseSegment.topAnchor.constraint(
+                equalTo: notificationStack.bottomAnchor,
+                constant: 30
+            ),
+            courseSegment.leadingAnchor.constraint(
+                equalTo: nameField.leadingAnchor
+            ),
+            courseSegment.trailingAnchor.constraint(
+                equalTo: nameField.trailingAnchor
+            ),
+
+            // Date Picker
+            datePicker.topAnchor.constraint(
+                equalTo: courseSegment.bottomAnchor,
+                constant: 30
+            ),
+            datePicker.centerXAnchor.constraint(
+                equalTo: contentView.centerXAnchor
+            ),
+
+            // Summary
+            summaryView.topAnchor.constraint(
+                equalTo: datePicker.bottomAnchor,
+                constant: 30
+            ),
+            summaryView.leadingAnchor.constraint(
+                equalTo: nameField.leadingAnchor
+            ),
+            summaryView.trailingAnchor.constraint(
+                equalTo: nameField.trailingAnchor
+            ),
+
+            summaryLabel.topAnchor.constraint(
+                equalTo: summaryView.topAnchor,
+                constant: 15
+            ),
+            summaryLabel.leadingAnchor.constraint(
+                equalTo: summaryView.leadingAnchor,
+                constant: 15
+            ),
+            summaryLabel.trailingAnchor.constraint(
+                equalTo: summaryView.trailingAnchor,
+                constant: -15
+            ),
+            summaryLabel.bottomAnchor.constraint(
+                equalTo: summaryView.bottomAnchor,
+                constant: -15
+            ),
+
+            // Button
+            nextButton.topAnchor.constraint(
+                equalTo: summaryView.bottomAnchor,
+                constant: 30
+            ),
+            nextButton.leadingAnchor.constraint(
+                equalTo: nameField.leadingAnchor
+            ),
+            nextButton.trailingAnchor.constraint(
+                equalTo: nameField.trailingAnchor
+            ),
+            nextButton.heightAnchor.constraint(equalToConstant: 50),
+            nextButton.bottomAnchor.constraint(
+                equalTo: contentView.bottomAnchor,
+                constant: -30
+            )
+        ])
+    }
+
+    // MARK: - R2: Control Actions
+
+    private func setupActions() {
+
+        nameField.addTarget(
+            self,
+            action: #selector(controlChanged),
+            for: .editingChanged
+        )
+
+        ageSlider.addTarget(
+            self,
+            action: #selector(controlChanged),
+            for: .valueChanged
+        )
+
+        notificationSwitch.addTarget(
+            self,
+            action: #selector(controlChanged),
+            for: .valueChanged
+        )
+
+        courseSegment.addTarget(
+            self,
+            action: #selector(controlChanged),
+            for: .valueChanged
+        )
+
+        datePicker.addTarget(
+            self,
+            action: #selector(controlChanged),
+            for: .valueChanged
+        )
+
+        nextButton.addTarget(
+            self,
+            action: #selector(openNextScreen),
+            for: .touchUpInside
+        )
+    }
+
+    @objc private func controlChanged() {
+        updateSummary()
+    }
+
+    // MARK: - Summary Panel
+
+    private func updateSummary() {
+
+        let name = nameField.text?.isEmpty == false
+            ? nameField.text!
+            : "Not entered"
+
+        let age = Int(ageSlider.value)
+
+        let courseIndex = courseSegment.selectedSegmentIndex
+        let course = courseSegment.titleForSegment(
+            at: courseIndex
+        ) ?? "Not selected"
+
+        let notificationStatus = notificationSwitch.isOn
+            ? "Enabled"
+            : "Disabled"
+
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+
+        let selectedDate = formatter.string(from: datePicker.date)
+
+        summaryLabel.text = """
+        PROFILE SUMMARY
+
+        Name: \(name)
+        Age: \(age)
+        Course: \(course)
+        Notifications: \(notificationStatus)
+        Date: \(selectedDate)
+        """
+    }
+
+    // MARK: - Navigation
+
+    @objc private func openNextScreen() {
+
+        view.endEditing(true)
+
+        let nextVC = NextViewController()
+        navigationController?.pushViewController(
+            nextVC,
+            animated: true
+        )
+    }
+
+    // MARK: - R5: Keyboard Handling
+
+    private func setupKeyboardHandling() {
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardWillShow),
+            name: UIResponder.keyboardWillShowNotification,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardWillHide),
+            name: UIResponder.keyboardWillHideNotification,
+            object: nil
+        )
+    }
+
+    @objc private func keyboardWillShow(_ notification: Notification) {
+
+        guard
+            let keyboardFrame = notification.userInfo?[
+                UIResponder.keyboardFrameEndUserInfoKey
+            ] as? CGRect
+        else {
+            return
+        }
+
+        scrollView.contentInset.bottom = keyboardFrame.height
+        scrollView.scrollIndicatorInsets.bottom = keyboardFrame.height
+    }
+
+    @objc private func keyboardWillHide(_ notification: Notification) {
+
+        scrollView.contentInset.bottom = 0
+        scrollView.scrollIndicatorInsets.bottom = 0
+    }
+
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+}
+
+// MARK: - SECOND SCREEN
+
+class NextViewController: UIViewController {
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        view.backgroundColor = .systemBackground
+        title = "Next Screen"
+
+        let label = UILabel()
+        label.text = "Welcome to the Next Screen"
+        label.font = .boldSystemFont(ofSize: 22)
+        label.textAlignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+
+        view.addSubview(label)
+
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
+    }
+}

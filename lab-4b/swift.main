@@ -1,0 +1,130 @@
+
+import SwiftUI
+
+// MARK: - R1: Main App Lifecycle
+
+@main
+struct LifecycleDemoApp: App {
+
+    @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        print("App initialized")
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .onChange(of: scenePhase) { oldPhase, newPhase in
+                    switch newPhase {
+                    case .active:
+                        print("Scene became ACTIVE")
+
+                    case .inactive:
+                        print("Scene became INACTIVE")
+
+                    case .background:
+                        print("Scene moved to BACKGROUND")
+
+                    @unknown default:
+                        print("Unknown scene phase")
+                    }
+                }
+        }
+    }
+}
+
+// MARK: - R1 and R2: First Screen
+
+struct ContentView: View {
+
+    @State private var refreshCount = 0
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+
+                Text("Home Screen")
+                    .font(.largeTitle)
+                    .bold()
+
+                Text("Refresh Count: \(refreshCount)")
+                    .font(.headline)
+
+                NavigationLink("Go to Second Screen") {
+                    SecondScreen()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding()
+            .navigationTitle("Home")
+            .onAppear {
+                print("Home Screen: onAppear")
+                refreshData()
+            }
+            .onDisappear {
+                print("Home Screen: onDisappear")
+            }
+        }
+    }
+
+    // MARK: - R4: Lightweight Refresh
+
+    private func refreshData() {
+        refreshCount += 1
+        print("Home Screen: Data refreshed")
+    }
+}
+
+// MARK: - R2 and R3: Second Screen
+
+struct SecondScreen: View {
+
+    var body: some View {
+        VStack(spacing: 20) {
+
+            Text("Second Screen")
+                .font(.largeTitle)
+                .bold()
+
+            Text("This is the second screen.")
+
+            NavigationLink("Go to Third Screen") {
+                ThirdScreen()
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding()
+        .navigationTitle("Second")
+        .onAppear {
+            print("Second Screen: onAppear")
+        }
+        .onDisappear {
+            print("Second Screen: onDisappear")
+        }
+    }
+}
+
+// MARK: - Additional Screen for Navigation Testing
+
+struct ThirdScreen: View {
+
+    var body: some View {
+        VStack(spacing: 20) {
+
+            Text("Third Screen")
+                .font(.largeTitle)
+                .bold()
+
+            Text("You have reached the third screen.")
+        }
+        .padding()
+        .navigationTitle("Third")
+        .onAppear {
+            print("Third Screen: onAppear")
+        }
+        .onDisappear {
+            print("Third Screen: onDisappear")
+        }
+    }
+}
